@@ -1,0 +1,11 @@
+image-cleaner:
+  product:
+    name: Image Cleaner
+    baseUrl: imageCleaner.djvk.net
+  test:
+logging:
+  level:
+    root: INFO
+    net:
+      djvk:
+        imageCleaner: TRACE
