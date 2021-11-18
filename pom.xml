@@ -20,8 +20,8 @@
         <coroutines.version>1.5.2</coroutines.version>
         <kotlin.compiler.incremental>true</kotlin.compiler.incremental>
 <!--        This version seems not to randomly crash the JDK-->
-        <javafx.version>17.0.2-ea+1</javafx.version>
-<!--        <javafx.version>18-ea+6</javafx.version>-->
+<!--        <javafx.version>17.0.2-ea+1</javafx.version>-->
+        <javafx.version>18-ea+7</javafx.version>
 <!--        <javafx.version>17.0.0.1</javafx.version>-->
     </properties>
 
