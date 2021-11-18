@@ -9,22 +9,39 @@ import javafx.stage.Stage
 
 class ParentController {
     @FXML
+    lateinit var btnSelectInputDirectory: Button
+    @FXML
     lateinit var txtInputDirectory: TextField
 
     @FXML
-    lateinit var btnSelectDirectory: Button
+    lateinit var btnSelectWorkingDirectory: Button
+    @FXML
+    lateinit var txtWorkingDirectory: TextField
 
     val stage
         get() = txtInputDirectory.scene.window as Stage
 
     @FXML
-    private fun handleSelectDirectoryClick(event: MouseEvent) {
-        val fileChooser = FileChooser()
-        fileChooser.title = "Select Input Directory"
-        val file = fileChooser.showOpenDialog(stage)
+    private fun handleSelectInputDirectoryClick(event: MouseEvent) {
+        val path = selectFile("Select Input Directory")
 
-        if (file != null) {
-            txtInputDirectory.text = file.path
+        if (path != null) {
+            txtInputDirectory.text = path
         }
+    }
+
+    @FXML
+    private fun handleSelectWorkingDirectoryClick(event: MouseEvent) {
+        val path = selectFile("Select Working Directory")
+
+        if (path != null) {
+            txtWorkingDirectory.text = path
+        }
+    }
+
+    private fun selectFile(title: String): String? {
+        val fileChooser = FileChooser()
+        fileChooser.title = title
+        return fileChooser.showOpenDialog(stage)?.path
     }
 }

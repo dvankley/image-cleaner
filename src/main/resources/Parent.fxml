@@ -15,9 +15,12 @@
             <content>
               <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0">
                      <children>
-                        <TextField fx:id="txtInputDirectory" alignment="CENTER" layoutX="77.0" layoutY="154.0" prefHeight="26.0" prefWidth="398.0" />
+                        <TextField fx:id="txtInputDirectory" alignment="CENTER" disable="true" layoutX="77.0" layoutY="154.0" prefHeight="26.0" prefWidth="398.0" />
                         <Label alignment="CENTER" layoutX="260.0" layoutY="121.0" text="Input Directory" />
-                        <Button fx:id="btnSelectDirectory" layoutX="14.0" layoutY="155.0" mnemonicParsing="false" onMouseClicked="#handleSelectDirectoryClick" text="Select" />
+                        <Button fx:id="btnSelectInputDirectory" layoutX="14.0" layoutY="155.0" mnemonicParsing="false" onMouseClicked="#handleSelectInputDirectoryClick" text="Select" />
+                        <Button fx:id="btnSelectWorkingDirectory" layoutX="13.0" layoutY="229.0" mnemonicParsing="false" onMouseClicked="#handleSelectWorkingDirectoryClick" text="Select" />
+                        <TextField fx:id="txtWorkingDirectory" disable="true" layoutX="86.0" layoutY="230.0" prefHeight="26.0" prefWidth="386.0" />
+                        <Label layoutX="251.0" layoutY="200.0" text="Working Directory" />
                      </children>
                   </AnchorPane>
             </content>
