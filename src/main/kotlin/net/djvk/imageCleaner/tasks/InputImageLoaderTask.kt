@@ -1,8 +1,11 @@
 package net.djvk.imageCleaner.tasks
 
 import javafx.concurrent.Task
-import javafx.scene.control.ProgressBar
 import kotlinx.coroutines.sync.Mutex
+import net.djvk.imageCleaner.constants.InputTaskResult
+import net.djvk.imageCleaner.constants.SOURCE_DIRECTORY_NAME
+import net.djvk.imageCleaner.constants.sep
+import org.apache.commons.io.FilenameUtils
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.pdmodel.PDResources
 import org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject
@@ -16,19 +19,33 @@ import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.stream.Stream
 import javax.imageio.ImageIO
-import kotlin.io.path.extension
 
-
+/**
+ * - Loads and parses input images from their source files
+ * - Outputs them in a consistent format to the working directory
+ * - Stores their metadata in memory for later access
+ */
 class InputImageLoaderTask(
     private val inputDirectory: Path,
+    private val workingDirectory: Path,
     private val mutex: Mutex,
-    private val progressBar: ProgressBar,
-) : Task<List<BufferedImage>>() {
+) : Task<List<InputTaskResult>>() {
     private val logger: Logger = LoggerFactory.getLogger(this::class.java)
 
-    private val progress = AtomicInteger(0)
+    private val imageReadProgress = AtomicInteger(0)
+    private val imageWriteProgress = AtomicInteger(0)
 
-    override fun call(): List<BufferedImage> {
+    private data class IntermediateImage(
+        val img: BufferedImage,
+        val inputFilename: String,
+        val index: Int,
+    )
+
+    /**
+     * @return Returns a list of image file names. They will be stored in $workingDirectory/source.
+     *  The order of the list reflects the order that the files were read from the input directory.
+     */
+    override fun call(): List<InputTaskResult> {
         // Read file names
         val files = Files.list(inputDirectory).toList()
         val fileCount = files.size
@@ -45,24 +62,28 @@ class InputImageLoaderTask(
             }
             .flatMap { path ->
                 logger.debug("Loading input image from $path")
-                val img = readImages(path.toFile())
-                val prog = progress.incrementAndGet()
-                updateProgress(prog.toLong(), fileCount.toLong())
-                img
+                val imgStream = readImages(path.toFile())
+                val prog = imageReadProgress.incrementAndGet()
+                updateProgress(prog.toLong(), (fileCount * 2).toLong())
+                var index = 0
+                imgStream.map { img ->
+                    IntermediateImage(img, path.fileName.toString(), index++)
+                }
+            }
+            .map { img ->
+                val extension = FilenameUtils.getExtension(img.inputFilename)
+                val filename = "${FilenameUtils.removeExtension(img.inputFilename)}_${img.index}.$extension"
+                logger.debug("Writing input image $filename to source directory")
+                ImageIO.write(
+                    img.img,
+                    "jpg",
+                    File("$workingDirectory$sep$SOURCE_DIRECTORY_NAME$sep$filename")
+                )
+                val prog = imageWriteProgress.incrementAndGet()
+                updateProgress((fileCount + prog).toLong(), (fileCount * 2).toLong())
+                filename
             }
             .toList()
-
-//        return runBlocking {
-//            files.map { path ->
-//                logger.debug("Loading input image from $path")
-//                val img = readImages(path.toFile())
-//                val prog = progress.incrementAndGet()
-//                updateProgress(prog.toLong(), fileCount)
-//                img
-//            }
-//        }
-//            .flatMap {  }
-//            .toList()
     }
 
     override fun succeeded() {
@@ -70,7 +91,6 @@ class InputImageLoaderTask(
 
         logger.info("Input file loader task succeeded")
         mutex.unlock()
-        progressBar.isVisible = false
     }
 
     override fun cancelled() {
@@ -78,7 +98,6 @@ class InputImageLoaderTask(
 
         logger.info("Input file loader task cancelled")
         mutex.unlock()
-        progressBar.isVisible = false
     }
 
     override fun failed() {
@@ -86,7 +105,6 @@ class InputImageLoaderTask(
 
         logger.error("Input file loader task failed", exception)
         mutex.unlock()
-        progressBar.isVisible = false
     }
 
     private fun readImages(file: File): Stream<BufferedImage> {
