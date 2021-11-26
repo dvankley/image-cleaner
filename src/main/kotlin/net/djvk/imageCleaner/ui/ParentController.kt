@@ -6,8 +6,12 @@ import javafx.event.EventHandler
 import javafx.fxml.FXML
 import javafx.scene.control.*
 import javafx.scene.image.ImageView
+import javafx.scene.input.DragEvent
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.HBox
+import javafx.scene.layout.StackPane
+import javafx.scene.paint.Color
+import javafx.scene.shape.Rectangle
 import javafx.stage.FileChooser
 import javafx.stage.Stage
 import kotlinx.coroutines.sync.Mutex
@@ -26,6 +30,8 @@ import java.nio.file.Paths
 import java.util.concurrent.Executors
 import javax.imageio.ImageIO
 import kotlin.io.path.pathString
+import kotlin.math.abs
+import kotlin.math.min
 
 class ParentController {
     private val logger: Logger = LoggerFactory.getLogger(this::class.java)
@@ -73,6 +79,9 @@ class ParentController {
 
     @FXML
     lateinit var ivSamplingMain: ImageView
+
+    @FXML
+    lateinit var stkSamplingMain: StackPane
 
     @FXML
     lateinit var btnPositive: Button
@@ -365,6 +374,62 @@ class ParentController {
             ImageIO.read(File("$workingDirectory$sep$SOURCE_DIRECTORY_NAME$sep${source.id}")),
             null
         )
+    }
+
+    private var lastSampleClickTimestampMillis = 0L
+    private val SAMPLE_CLICK_DRAG_TIMEOUT_MILLIS = 5000
+    private val SAMPLE_DRAG_BOX_ID = "sampleDragBox"
+
+//    private var sampleClickStartX = 0
+//    private var sampleClickStartY = 0
+
+    @FXML
+    private fun handleSamplePressed(event: MouseEvent) {
+        val dragBox = stkSamplingMain.lookup("#$SAMPLE_DRAG_BOX_ID") as? Rectangle
+            ?: run {
+                val rect = Rectangle()
+                rect.fill = Color.TRANSPARENT
+                rect.stroke = Color.BLACK
+                rect.strokeWidth = 5.0
+                rect.id = SAMPLE_DRAG_BOX_ID
+                stkSamplingMain.children.add(rect)
+                rect
+            }
+        dragBox.x = event.x
+        dragBox.y = event.y
+        dragBox.width = 10.0
+        dragBox.height = 10.0
+        logger.trace("Sample pressed event: ${event.x},${event.y}")
+        lastSampleClickTimestampMillis = System.currentTimeMillis()
+    }
+
+    @FXML
+    private fun handleSampleDragged(event: MouseEvent) {
+        sampleDrag(event)
+    }
+
+    @FXML
+    private fun handleSampleReleased(event: MouseEvent) {
+        sampleDrag(event)
+    }
+
+    private fun sampleDrag(event: MouseEvent) {
+        val dragBox = stkSamplingMain.lookup("#$SAMPLE_DRAG_BOX_ID") as? Rectangle
+            ?: run {
+                logger.warn("Failed to find sample drag box on mouse drag event")
+                return
+            }
+
+        logger.trace("Sample dragged/released event: ${event.x},${event.y}; box: ${dragBox.x},${dragBox.y}")
+        dragBox.x = min(event.x, dragBox.x)
+        dragBox.y = min(event.y, dragBox.y)
+        dragBox.width = abs(event.x - dragBox.x)
+        dragBox.height = abs(event.y - dragBox.y)
+    }
+
+    @FXML
+    private fun handleSampleDragDone(event: DragEvent) {
+        val thing = 1
     }
     //endregion
 }
