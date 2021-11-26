@@ -2,6 +2,7 @@ package net.djvk.imageCleaner.ui
 
 import javafx.concurrent.Task
 import javafx.embed.swing.SwingFXUtils
+import javafx.event.EventHandler
 import javafx.fxml.FXML
 import javafx.scene.control.*
 import javafx.scene.image.ImageView
@@ -16,7 +17,6 @@ import net.djvk.imageCleaner.tasks.InputImageLoaderTask
 import net.djvk.imageCleaner.util.DsStoreFilenameFilter
 import net.djvk.imageCleaner.util.recursiveDeleteAllContents
 import net.djvk.imageCleaner.util.unwrapOptional
-import org.apache.commons.io.FilenameUtils
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.io.File
@@ -108,6 +108,7 @@ class ParentController {
                     )
                 )
                 iv.id = srcImgFilename
+                iv.onMouseClicked = handleSourceThumbnailClick
                 iv
             })
         }
@@ -336,5 +337,11 @@ class ParentController {
             txtWorkingDirectory.text = path
         }
     }
+
+    private val handleSourceThumbnailClick =
+        EventHandler<MouseEvent> { event ->
+            val source = event.source as ImageView
+            logger.info("Thumbnail click on ${source.id}")
+        }
     //endregion
 }
