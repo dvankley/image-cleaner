@@ -9,7 +9,7 @@ import javafx.scene.image.ImageView
 import javafx.scene.input.DragEvent
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.HBox
-import javafx.scene.layout.StackPane
+import javafx.scene.layout.Pane
 import javafx.scene.paint.Color
 import javafx.scene.shape.Rectangle
 import javafx.stage.FileChooser
@@ -81,7 +81,7 @@ class ParentController {
     lateinit var ivSamplingMain: ImageView
 
     @FXML
-    lateinit var stkSamplingMain: StackPane
+    lateinit var paneSamplingMain: Pane
 
     @FXML
     lateinit var btnPositive: Button
@@ -385,21 +385,21 @@ class ParentController {
 
     @FXML
     private fun handleSamplePressed(event: MouseEvent) {
-        val dragBox = stkSamplingMain.lookup("#$SAMPLE_DRAG_BOX_ID") as? Rectangle
+        val dragBox = paneSamplingMain.lookup("#$SAMPLE_DRAG_BOX_ID") as? Rectangle
             ?: run {
                 val rect = Rectangle()
                 rect.fill = Color.TRANSPARENT
                 rect.stroke = Color.BLACK
                 rect.strokeWidth = 5.0
                 rect.id = SAMPLE_DRAG_BOX_ID
-                stkSamplingMain.children.add(rect)
+                paneSamplingMain.children.add(rect)
                 rect
             }
         dragBox.x = event.x
         dragBox.y = event.y
         dragBox.width = 10.0
         dragBox.height = 10.0
-        logger.trace("Sample pressed event: ${event.x},${event.y}")
+//        logger.trace("Sample pressed event: ${event.x},${event.y}")
         lastSampleClickTimestampMillis = System.currentTimeMillis()
     }
 
@@ -414,13 +414,13 @@ class ParentController {
     }
 
     private fun sampleDrag(event: MouseEvent) {
-        val dragBox = stkSamplingMain.lookup("#$SAMPLE_DRAG_BOX_ID") as? Rectangle
+        val dragBox = paneSamplingMain.lookup("#$SAMPLE_DRAG_BOX_ID") as? Rectangle
             ?: run {
                 logger.warn("Failed to find sample drag box on mouse drag event")
                 return
             }
 
-        logger.trace("Sample dragged/released event: ${event.x},${event.y}; box: ${dragBox.x},${dragBox.y}")
+//        logger.trace("Sample dragged/released event: ${event.x},${event.y}; box: ${dragBox.x},${dragBox.y}")
         dragBox.x = min(event.x, dragBox.x)
         dragBox.y = min(event.y, dragBox.y)
         dragBox.width = abs(event.x - dragBox.x)
