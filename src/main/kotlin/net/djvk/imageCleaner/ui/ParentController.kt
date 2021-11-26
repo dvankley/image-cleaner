@@ -24,6 +24,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.concurrent.Executors
+import javax.imageio.ImageIO
 import kotlin.io.path.pathString
 
 class ParentController {
@@ -32,7 +33,7 @@ class ParentController {
     @FXML
     lateinit var tabPane: TabPane
 
-    val pool = Executors.newWorkStealingPool()
+    private val pool = Executors.newWorkStealingPool()
 
     //region Input Tab
     @FXML
@@ -53,8 +54,8 @@ class ParentController {
     @FXML
     lateinit var btnLoadInputFiles: Button
 
-    lateinit var inputDirectory: Path
-    lateinit var workingDirectory: Path
+    private lateinit var inputDirectory: Path
+    private lateinit var workingDirectory: Path
     //endregion
 
     //region Sample Tab
@@ -68,13 +69,28 @@ class ParentController {
     lateinit var imgEditor: ImageView
 
     @FXML
-    lateinit var hboxInputImages: HBox
+    lateinit var hboxSourceImages: HBox
+
+    @FXML
+    lateinit var ivSamplingMain: ImageView
+
+    @FXML
+    lateinit var btnPositive: Button
+
+    @FXML
+    lateinit var btnNegative: Button
+
+    @FXML
+    lateinit var hboxPositiveImages: HBox
+
+    @FXML
+    lateinit var hboxNegativeImages: HBox
 
     /**
      * Background task to load inputimages from files
      */
-    var inputImageLoadingTask: Task<List<InputTaskResult>>? = null
-    val inputImageLoadingMutex = Mutex()
+    private var inputImageLoadingTask: Task<List<InputTaskResult>>? = null
+    private val inputImageLoadingMutex = Mutex()
 
     //endregion
 
@@ -96,9 +112,9 @@ class ParentController {
             // Update the UI with the new set of images
 
             // Remove the old images
-            hboxInputImages.children.clear()
+            hboxSourceImages.children.clear()
             // Add the new ones
-            hboxInputImages.children.addAll(value.map { srcImgFilename ->
+            hboxSourceImages.children.addAll(value.map { srcImgFilename ->
                 val iv = ImageView(
                     SwingFXUtils.toFXImage(
                         Thumbnails
@@ -114,7 +130,7 @@ class ParentController {
         }
 
     fun initialize() {
-        tabPane.selectionModel.selectedItemProperty().addListener { value, old, new ->
+        tabPane.selectionModel.selectedItemProperty().addListener { _, _, new ->
             when (new) {
                 tabInput -> {
                 }
@@ -338,10 +354,17 @@ class ParentController {
         }
     }
 
-    private val handleSourceThumbnailClick =
-        EventHandler<MouseEvent> { event ->
-            val source = event.source as ImageView
-            logger.info("Thumbnail click on ${source.id}")
-        }
+    /**
+     * Handles clicks on source image thumbnails, loading them into the main image view for sampling.
+     */
+    private val handleSourceThumbnailClick = EventHandler<MouseEvent> { event ->
+        val source = event.source as ImageView
+        logger.trace("Thumbnail click on ${source.id}")
+
+        ivSamplingMain.image = SwingFXUtils.toFXImage(
+            ImageIO.read(File("$workingDirectory$sep$SOURCE_DIRECTORY_NAME$sep${source.id}")),
+            null
+        )
+    }
     //endregion
 }
