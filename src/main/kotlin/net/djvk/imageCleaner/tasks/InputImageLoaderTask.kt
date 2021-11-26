@@ -5,6 +5,7 @@ import kotlinx.coroutines.sync.Mutex
 import net.djvk.imageCleaner.constants.InputTaskResult
 import net.djvk.imageCleaner.constants.SOURCE_DIRECTORY_NAME
 import net.djvk.imageCleaner.constants.sep
+import net.djvk.imageCleaner.util.DsStoreFilenameFilter
 import org.apache.commons.io.FilenameUtils
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.pdmodel.PDResources
@@ -47,32 +48,30 @@ class InputImageLoaderTask(
      */
     override fun call(): List<InputTaskResult> {
         // Read file names
-        val files = Files.list(inputDirectory).toList()
+        val files = inputDirectory.toFile().listFiles(DsStoreFilenameFilter)
+            ?: throw IllegalArgumentException("Input directory empty")
         val fileCount = files.size
         logger.debug("$fileCount input files to read")
 //            .toFlux()
 
         // Parallel load images from files
         return files
+            .toList()
             .stream()
             .parallel()
-            .filter {
-                // Filter out goofy files like .DS_Store
-                !it.fileName.toString().startsWith(".")
-            }
-            .flatMap { path ->
-                logger.debug("Loading input image from $path")
-                val imgStream = readImages(path.toFile())
+            .flatMap { file ->
+                logger.debug("Loading input image from $file")
+                val imgStream = readImages(file)
                 val prog = imageReadProgress.incrementAndGet()
                 updateProgress(prog.toLong(), (fileCount * 2).toLong())
                 var index = 0
                 imgStream.map { img ->
-                    IntermediateImage(img, path.fileName.toString(), index++)
+                    IntermediateImage(img, file.name.toString(), index++)
                 }
             }
             .map { img ->
                 val extension = FilenameUtils.getExtension(img.inputFilename)
-                val filename = "${FilenameUtils.removeExtension(img.inputFilename)}_${img.index}.$extension"
+                val filename = "${FilenameUtils.removeExtension(img.inputFilename)}_${img.index}.jpg"
                 logger.debug("Writing input image $filename to source directory")
                 ImageIO.write(
                     img.img,

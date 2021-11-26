@@ -13,16 +13,18 @@ import kotlinx.coroutines.sync.Mutex
 import net.coobird.thumbnailator.Thumbnails
 import net.djvk.imageCleaner.constants.*
 import net.djvk.imageCleaner.tasks.InputImageLoaderTask
+import net.djvk.imageCleaner.util.DsStoreFilenameFilter
 import net.djvk.imageCleaner.util.recursiveDeleteAllContents
 import net.djvk.imageCleaner.util.unwrapOptional
+import org.apache.commons.io.FilenameUtils
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.concurrent.Executors
 import kotlin.io.path.pathString
-import kotlin.streams.toList
 
 class ParentController {
     private val logger: Logger = LoggerFactory.getLogger(this::class.java)
@@ -50,6 +52,9 @@ class ParentController {
 
     @FXML
     lateinit var btnLoadInputFiles: Button
+
+    lateinit var inputDirectory: Path
+    lateinit var workingDirectory: Path
     //endregion
 
     //region Sample Tab
@@ -77,12 +82,12 @@ class ParentController {
         get() = txtInputDirectory.scene.window as Stage
 
     /**
-     * Full size, in memory representation of all input images.
-     * I might just leave this on disk and load on demand later if this uses too much memory.
+     * List of source file names, with extensions.
      */
-    private var inputImages = listOf<InputTaskResult>()
+    private var sourceImages = listOf<SourceFilename>()
         /**
-         * This setter is called when [inputImages] are loaded from disk into memory.
+         * This setter is called when [sourceImages] are first loaded, either from input
+         *  images or straight from the source file..
          * It updates the sample UI with thumbnails and clears existing training data.
          */
         set(value) {
@@ -93,18 +98,18 @@ class ParentController {
             // Remove the old images
             hboxInputImages.children.clear()
             // Add the new ones
-            hboxInputImages.children.addAll(value.map { bufImg ->
-                ImageView(
+            hboxInputImages.children.addAll(value.map { srcImgFilename ->
+                val iv = ImageView(
                     SwingFXUtils.toFXImage(
                         Thumbnails
-                            .of(bufImg)
+                            .of("$workingDirectory$sep$SOURCE_DIRECTORY_NAME$sep$srcImgFilename")
                             .size(50, 50)
                             .asBufferedImage(), null
                     )
                 )
+                iv.id = srcImgFilename
+                iv
             })
-
-            // TODO: clear out existing model and training data
         }
 
     fun initialize() {
@@ -154,12 +159,16 @@ class ParentController {
 
         when (checkWorkingDirectory(workingDirectory)) {
             WorkingDirectoryStatus.DOESNT_EXIST -> {
-                val alert = Alert(Alert.AlertType.ERROR, "Working directory does not exist, please select a valid directory.")
+                val alert =
+                    Alert(Alert.AlertType.ERROR, "Working directory does not exist, please select a valid directory.")
                 alert.showAndWait()
             }
             WorkingDirectoryStatus.EXISTS_BUT_EMPTY -> initWorkingDirectory(workingDirectory)
             WorkingDirectoryStatus.EXISTS_BUT_UNRECOGNIZED -> {
-                val alert = Alert(Alert.AlertType.CONFIRMATION, "Working directory contains unrecognized files; purge and continue?")
+                val alert = Alert(
+                    Alert.AlertType.CONFIRMATION,
+                    "Working directory contains unrecognized files; purge and continue?"
+                )
                 val result = unwrapOptional(alert.showAndWait())
                     ?: return
                 if (result.buttonData == ButtonBar.ButtonData.OK_DONE) {
@@ -170,7 +179,10 @@ class ParentController {
                 }
             }
             WorkingDirectoryStatus.EXISTS_AND_NON_EMPTY_SRC -> {
-                val alert = Alert(Alert.AlertType.CONFIRMATION, "Source directory already contains input files; purge and continue?")
+                val alert = Alert(
+                    Alert.AlertType.CONFIRMATION,
+                    "Source directory already contains input files; purge and continue?"
+                )
                 val result = unwrapOptional(alert.showAndWait())
                     ?: return
                 if (result.buttonData == ButtonBar.ButtonData.OK_DONE) {
@@ -180,25 +192,28 @@ class ParentController {
                     return
                 }
             }
-            WorkingDirectoryStatus.EXISTS_AND_EMPTY_SRC -> {}
+            WorkingDirectoryStatus.EXISTS_AND_EMPTY_SRC -> {
+            }
         }
 
         loadInputFiles(inputDirectory, workingDirectory)
     }
 
     private fun validateDirectorySelections() {
-        val inputDirectory = txtInputDirectory.text
-        val workingDirectory = txtWorkingDirectory.text
-        if (inputDirectory == null ||
-            inputDirectory == "" ||
-            workingDirectory == null ||
-            workingDirectory == ""
+        val input = txtInputDirectory.text
+        val working = txtWorkingDirectory.text
+        if (input == null ||
+            input == "" ||
+            working == null ||
+            working == ""
         ) {
             val alert = Alert(Alert.AlertType.ERROR, "Input directory selection required")
             alert.showAndWait()
             tabPane.selectionModel.select(tabInput)
             return
         }
+        inputDirectory = Paths.get(input)
+        workingDirectory = Paths.get(working)
     }
 
     private enum class WorkingDirectoryStatus {
@@ -214,14 +229,19 @@ class ParentController {
             return WorkingDirectoryStatus.DOESNT_EXIST
         }
 
-        val workingDirFiles = Files.list(workingDirectory).toList()
+//        val workingDirFiles = Files.list(workingDirectory).toList()
+        val workingDirFiles = workingDirectory.toFile().listFiles(DsStoreFilenameFilter)
+            ?: throw IllegalArgumentException("Invalid working directory $workingDirectory")
 
         if (workingDirFiles.isEmpty()) {
             return WorkingDirectoryStatus.EXISTS_BUT_EMPTY
         }
 
-        return if (workingDirFiles.map { it.fileName.pathString }.toSet() == workingDirNames) {
-            if (Files.list(Paths.get("$workingDirectory$sep$SOURCE_DIRECTORY_NAME")).toList().isEmpty()) {
+        return if (workingDirFiles.map { it.name }.toSet() == workingDirNames) {
+            val srcDirectoryFiles = File("$workingDirectory$sep$SOURCE_DIRECTORY_NAME").listFiles(DsStoreFilenameFilter)
+                ?: throw IllegalArgumentException("Invalid source directory $workingDirectory")
+            if (srcDirectoryFiles.isEmpty()) {
+//            if (Files.list(Paths.get("$workingDirectory$sep$SOURCE_DIRECTORY_NAME")).toList().isEmpty()) {
                 WorkingDirectoryStatus.EXISTS_AND_EMPTY_SRC
             } else {
                 WorkingDirectoryStatus.EXISTS_AND_NON_EMPTY_SRC
@@ -241,12 +261,18 @@ class ParentController {
         Files.createDirectory(Paths.get("${workingDirectory.pathString}$sep$NEGATIVE_DIRECTORY_NAME"))
     }
 
+    /**
+     * Loads input files with a background task.
+     * This is the first stage of the pipeline.
+     * Input files are loaded (and expanded, if necessary) into a consistent format and filename
+     *  scheme in the source directory. Filenames are set into [sourceImages] for future reference.
+     */
     private fun loadInputFiles(inputDirectory: Path, workingDirectory: Path) {
         if (!inputImageLoadingMutex.tryLock()) {
             logger.warn("Not kicking off input file read process because lock is held")
             return
         }
-        if (inputImages.isNotEmpty()) {
+        if (sourceImages.isNotEmpty()) {
             logger.info("Skipping input file read process because files are already loaded")
             return
         }
@@ -264,7 +290,7 @@ class ParentController {
             val result = stateEvent.source.value as List<InputTaskResult>
             logger.info("Loaded ${result.size} input images")
             prgInputLoading.isVisible = false
-            inputImages = result
+            sourceImages = result
         }
         task.setOnCancelled {
             prgInputLoading.isVisible = false
@@ -274,11 +300,25 @@ class ParentController {
         }
         pool.submit(task)
     }
+
+    /**
+     * If input images are not loaded directly, call this function to read the contents of the source
+     *  directory and set [sourceImages].
+     */
+    private fun loadSourceFiles() {
+        sourceImages = File("$workingDirectory$sep$SOURCE_DIRECTORY_NAME")
+            .listFiles()
+            ?.map { FilenameUtils.removeExtension(it.name) }
+            ?: listOf()
+    }
     //endregion
 
     //region Sample Tab
     private fun initSampleTab() {
         validateDirectorySelections()
+        if (sourceImages.isEmpty()) {
+            loadSourceFiles()
+        }
     }
 
     @FXML

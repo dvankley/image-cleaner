@@ -1,6 +1,7 @@
 package net.djvk.imageCleaner.util
 
 import java.io.File
+import java.io.FilenameFilter
 import java.util.*
 
 fun <T> unwrapOptional(optional: Optional<T>): T? {
@@ -22,4 +23,8 @@ fun recursiveDeleteAllContents(directory: File) {
         }
         file.delete()
     }
+}
+
+val DsStoreFilenameFilter = FilenameFilter {dir, name ->
+    name != ".DS_Store"
 }
