@@ -229,7 +229,6 @@ class ParentController {
             return WorkingDirectoryStatus.DOESNT_EXIST
         }
 
-//        val workingDirFiles = Files.list(workingDirectory).toList()
         val workingDirFiles = workingDirectory.toFile().listFiles(DsStoreFilenameFilter)
             ?: throw IllegalArgumentException("Invalid working directory $workingDirectory")
 
@@ -241,7 +240,6 @@ class ParentController {
             val srcDirectoryFiles = File("$workingDirectory$sep$SOURCE_DIRECTORY_NAME").listFiles(DsStoreFilenameFilter)
                 ?: throw IllegalArgumentException("Invalid source directory $workingDirectory")
             if (srcDirectoryFiles.isEmpty()) {
-//            if (Files.list(Paths.get("$workingDirectory$sep$SOURCE_DIRECTORY_NAME")).toList().isEmpty()) {
                 WorkingDirectoryStatus.EXISTS_AND_EMPTY_SRC
             } else {
                 WorkingDirectoryStatus.EXISTS_AND_NON_EMPTY_SRC
@@ -308,7 +306,7 @@ class ParentController {
     private fun loadSourceFiles() {
         sourceImages = File("$workingDirectory$sep$SOURCE_DIRECTORY_NAME")
             .listFiles()
-            ?.map { FilenameUtils.removeExtension(it.name) }
+            ?.map { it.name }
             ?: listOf()
     }
     //endregion
