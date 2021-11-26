@@ -43,8 +43,8 @@
                               <HBox fx:id="hboxSourceImages" />
                            </content>
                         </ScrollPane>
-                        <Button fx:id="btnPositive" layoutX="651.0" layoutY="381.0" mnemonicParsing="false" text="Positive" />
-                        <Button fx:id="btnNegative" layoutX="651.0" layoutY="417.0" mnemonicParsing="false" text="Negative" />
+                        <Button fx:id="btnPositive" layoutX="651.0" layoutY="381.0" mnemonicParsing="false" onMouseClicked="#handlePositiveSampleClick" text="Positive" />
+                        <Button fx:id="btnNegative" layoutX="651.0" layoutY="417.0" mnemonicParsing="false" onMouseClicked="#handleNegativeSampleClick" text="Negative" />
                         <ScrollPane hbarPolicy="ALWAYS" layoutX="14.0" layoutY="597.0" prefHeight="75.0" prefWidth="700.0" vbarPolicy="NEVER">
                            <content>
                               <HBox fx:id="hboxPositiveImages" />
@@ -61,7 +61,7 @@
                            <content>
                               <Pane fx:id="paneSamplingMain">
                                  <children>
-                                    <ImageView fx:id="ivSamplingMain" onDragDone="#handleSampleDragDone" onMouseDragged="#handleSampleDragged" onMousePressed="#handleSamplePressed" onMouseReleased="#handleSampleReleased" pickOnBounds="true" preserveRatio="true" />
+                                    <ImageView fx:id="ivSamplingMain" onMouseDragged="#handleSampleDragged" onMousePressed="#handleSamplePressed" onMouseReleased="#handleSampleReleased" pickOnBounds="true" preserveRatio="true" />
                                  </children>
                               </Pane>
                            </content>

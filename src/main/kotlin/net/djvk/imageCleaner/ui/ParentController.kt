@@ -23,6 +23,7 @@ import net.djvk.imageCleaner.util.recursiveDeleteAllContents
 import net.djvk.imageCleaner.util.unwrapOptional
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import java.awt.image.BufferedImage
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
@@ -32,6 +33,7 @@ import javax.imageio.ImageIO
 import kotlin.io.path.pathString
 import kotlin.math.abs
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 class ParentController {
     private val logger: Logger = LoggerFactory.getLogger(this::class.java)
@@ -79,6 +81,11 @@ class ParentController {
 
     @FXML
     lateinit var ivSamplingMain: ImageView
+
+    /**
+     * [BufferedImage] version of [ivSamplingMain]
+     */
+    private var mainSamplingImage: BufferedImage? = null
 
     @FXML
     lateinit var paneSamplingMain: Pane
@@ -370,26 +377,27 @@ class ParentController {
         val source = event.source as ImageView
         logger.trace("Thumbnail click on ${source.id}")
 
-        ivSamplingMain.image = SwingFXUtils.toFXImage(
-            ImageIO.read(File("$workingDirectory$sep$SOURCE_DIRECTORY_NAME$sep${source.id}")),
-            null
-        )
+        // Read image into memory
+        mainSamplingImage = ImageIO.read(File("$workingDirectory$sep$SOURCE_DIRECTORY_NAME$sep${source.id}"))
+
+        // Load full image into UI
+        ivSamplingMain.image = SwingFXUtils.toFXImage(mainSamplingImage, null)
     }
 
     private var lastSampleClickTimestampMillis = 0L
-    private val SAMPLE_CLICK_DRAG_TIMEOUT_MILLIS = 5000
     private val SAMPLE_DRAG_BOX_ID = "sampleDragBox"
 
-//    private var sampleClickStartX = 0
-//    private var sampleClickStartY = 0
+    private fun getDragBox(): Rectangle? {
+        return paneSamplingMain.lookup("#$SAMPLE_DRAG_BOX_ID") as? Rectangle
+    }
 
     @FXML
     private fun handleSamplePressed(event: MouseEvent) {
-        val dragBox = paneSamplingMain.lookup("#$SAMPLE_DRAG_BOX_ID") as? Rectangle
+        val dragBox = getDragBox()
             ?: run {
                 val rect = Rectangle()
                 rect.fill = Color.TRANSPARENT
-                rect.stroke = Color.BLACK
+                rect.stroke = Color.BLUE
                 rect.strokeWidth = 5.0
                 rect.id = SAMPLE_DRAG_BOX_ID
                 paneSamplingMain.children.add(rect)
@@ -414,7 +422,7 @@ class ParentController {
     }
 
     private fun sampleDrag(event: MouseEvent) {
-        val dragBox = paneSamplingMain.lookup("#$SAMPLE_DRAG_BOX_ID") as? Rectangle
+        val dragBox = getDragBox()
             ?: run {
                 logger.warn("Failed to find sample drag box on mouse drag event")
                 return
@@ -428,8 +436,38 @@ class ParentController {
     }
 
     @FXML
-    private fun handleSampleDragDone(event: DragEvent) {
-        val thing = 1
+    private fun handlePositiveSampleClick(event: MouseEvent) {
+        cutAndWriteSample(POSITIVE_DIRECTORY_NAME)
+    }
+
+    @FXML
+    private fun handleNegativeSampleClick(event: MouseEvent) {
+        cutAndWriteSample(NEGATIVE_DIRECTORY_NAME)
+    }
+    
+    private fun cutAndWriteSample(targetDirectory: String) {
+        val mainImage = mainSamplingImage
+            ?: run {
+                val alert = Alert(Alert.AlertType.ERROR, "No sampling image selected.")
+                alert.showAndWait()
+                return
+            }
+        val dragBox = getDragBox()
+            ?: run {
+                val alert = Alert(Alert.AlertType.ERROR, "No sample box selected.")
+                alert.showAndWait()
+                return
+            }
+        // Slice out the selected box from the main sampling image
+        val sub = mainImage.getSubimage(
+            dragBox.x.roundToInt(),
+            dragBox.y.roundToInt(),
+            dragBox.width.roundToInt(),
+            dragBox.height.roundToInt()
+        )
+
+        // Write it to a file
+        ImageIO.write(sub, "jpg", File("$workingDirectory$sep$targetDirectory$sep${System.currentTimeMillis()}.jpg"))
     }
     //endregion
 }
