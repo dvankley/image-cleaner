@@ -38,9 +38,9 @@
                   </AnchorPane>
             </content>
           </Tab>
-          <Tab fx:id="tabSample" text="Sample">
+          <Tab fx:id="tabAnnotate" text="Annotate">
             <content>
-              <AnchorPane fx:id="apSample" minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0">
+              <AnchorPane fx:id="apAnnotate" minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0">
                      <children>
                         <ImageView fx:id="imgEditor" fitHeight="273.0" fitWidth="546.0" layoutX="43.0" layoutY="120.0" onMousePressed="#editorPress" onMouseReleased="#editorRelease" pickOnBounds="true" preserveRatio="true" />
                         <Label layoutX="14.0" layoutY="14.0" text="Input Images" />
@@ -51,9 +51,9 @@
                         </ScrollPane>
                         <ScrollPane layoutX="14.0" layoutY="120.0" prefHeight="526.0" prefWidth="699.0">
                            <content>
-                              <Pane fx:id="paneSamplingMain">
+                              <Pane fx:id="paneAnnotatingMain">
                                  <children>
-                                    <ImageView fx:id="ivSamplingMain" onMouseDragged="#handleAnnotationDragged" onMousePressed="#handleAnnotationPressed" onMouseReleased="#handleAnnotationReleased" pickOnBounds="true" preserveRatio="true" />
+                                    <ImageView fx:id="ivAnnotatingMain" onMouseDragged="#handleAnnotationDragged" onMousePressed="#handleAnnotationPressed" onMouseReleased="#handleAnnotationReleased" pickOnBounds="true" preserveRatio="true" />
                                  </children>
                               </Pane>
                            </content>

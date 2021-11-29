@@ -65,12 +65,12 @@ class ParentController {
     private lateinit var workingDirectory: Path
     //endregion
 
-    //region Sample Tab
+    //region Annotate Tab
     @FXML
-    lateinit var tabSample: Tab
+    lateinit var tabAnnotate: Tab
 
     @FXML
-    lateinit var apSample: AnchorPane
+    lateinit var apAnnotate: AnchorPane
 
     @FXML
     lateinit var prgInputLoading: ProgressBar
@@ -82,15 +82,15 @@ class ParentController {
     lateinit var hboxSourceImages: HBox
 
     @FXML
-    lateinit var ivSamplingMain: ImageView
+    lateinit var ivAnnotatingMain: ImageView
 
     /**
-     * [BufferedImage] version of [ivSamplingMain]
+     * [BufferedImage] version of [ivAnnotatingMain]
      */
-    private var mainSamplingImage: BufferedImage? = null
+    private var mainAnnotatingImage: BufferedImage? = null
 
     @FXML
-    lateinit var paneSamplingMain: Pane
+    lateinit var paneAnnotatingMain: Pane
 
     @FXML
     lateinit var btnPositive: Button
@@ -143,7 +143,7 @@ class ParentController {
         /**
          * This setter is called when [sourceImages] are first loaded, either from input
          *  images or straight from the source file..
-         * It updates the sample UI with thumbnails and clears existing training data.
+         * It updates the annotate UI with thumbnails and clears existing training data.
          */
         set(value) {
             field = value
@@ -174,13 +174,13 @@ class ParentController {
             when (new) {
                 tabInput -> {
                 }
-                tabSample -> initSampleTab()
+                tabAnnotate -> initAnnotateTab()
                 else -> throw IllegalArgumentException("Invalid tab $new")
             }
         }
-        // Sample tab, annotation type change listener
+        // Annotate tab, annotation type change listener
         tgAnnotationType.selectedToggleProperty().addListener(handleAnnotationTypeChange)
-        // Sample tab, selected annotation change listener
+        // Annotate tab, selected annotation change listener
         chbAnnotation.selectionModel.selectedItemProperty().addListener(handleCurrentAnnotationChange)
     }
 
@@ -389,8 +389,8 @@ class ParentController {
     }
     //endregion
 
-    //region Sample Tab
-    private fun initSampleTab() {
+    //region Annotate Tab
+    private fun initAnnotateTab() {
         // TODO: put all this on a background task
         validateDirectorySelections()
         if (sourceImages.isEmpty()) {
@@ -417,17 +417,17 @@ class ParentController {
     }
 
     /**
-     * Handles clicks on source image thumbnails, loading them into the main image view for sampling.
+     * Handles clicks on source image thumbnails, loading them into the main image view for annotating.
      */
     private val handleSourceThumbnailClick = EventHandler<MouseEvent> { event ->
         val source = event.source as ImageView
         logger.trace("Thumbnail click on ${source.id}")
 
         // Read image into memory
-        mainSamplingImage = ImageIO.read(File("$workingDirectory$sep$SOURCE_DIRECTORY_NAME$sep${source.id}"))
+        mainAnnotatingImage = ImageIO.read(File("$workingDirectory$sep$SOURCE_DIRECTORY_NAME$sep${source.id}"))
 
         // Load full image into UI
-        ivSamplingMain.image = SwingFXUtils.toFXImage(mainSamplingImage, null)
+        ivAnnotatingMain.image = SwingFXUtils.toFXImage(mainAnnotatingImage, null)
     }
 
     private val CURRENT_ANNOTATION_COLOR = Color.BLUE
@@ -451,7 +451,7 @@ class ParentController {
         dragBox.y = event.y
         dragBox.width = 10.0
         dragBox.height = 10.0
-//        logger.trace("Sample pressed event: ${event.x},${event.y}")
+//        logger.trace("Annotate pressed event: ${event.x},${event.y}")
 
         forceRefreshChoiceBox(chbAnnotation)
     }
@@ -469,11 +469,11 @@ class ParentController {
     private fun annotationDrag(event: MouseEvent) {
         val dragBox = getCurrentlySelectedDragBox()
             ?: run {
-                logger.warn("Failed to find sample drag box on mouse drag event")
+                logger.warn("Failed to find annotate drag box on mouse drag event")
                 return
             }
 
-//        logger.trace("Sample dragged/released event: ${event.x},${event.y}; box: ${dragBox.x},${dragBox.y}")
+//        logger.trace("Annotate dragged/released event: ${event.x},${event.y}; box: ${dragBox.x},${dragBox.y}")
         dragBox.x = min(event.x, dragBox.x)
         dragBox.y = min(event.y, dragBox.y)
         dragBox.width = abs(event.x - dragBox.x)
@@ -510,14 +510,14 @@ class ParentController {
             newItem.rect.stroke = CURRENT_ANNOTATION_COLOR
 
             // Update the annotation type radio button to match the newly selected item
-            tgAnnotationType.selectToggle(apSample.lookup("#${newItem.type.nodeId}") as Toggle)
+            tgAnnotationType.selectToggle(apAnnotate.lookup("#${newItem.type.nodeId}") as Toggle)
         }
     }
 
     @FXML
     private fun handleDeleteCurrentAnnotation(event: MouseEvent) {
         // Remove the rectangle from the UI
-        paneSamplingMain.children.remove(chbAnnotation.selectionModel.selectedItem.rect)
+        paneAnnotatingMain.children.remove(chbAnnotation.selectionModel.selectedItem.rect)
 
         // Remove the element from the choice box
         val index = chbAnnotation.selectionModel.selectedIndex
@@ -533,7 +533,7 @@ class ParentController {
     private fun addNewAnnotation(): Rectangle {
         // Create a new rectangle object for this annotation and add it to the UI
         val rect = buildDragBox(CURRENT_ANNOTATION_COLOR)
-        paneSamplingMain.children.add(rect)
+        paneAnnotatingMain.children.add(rect)
 
         // Add a new entry to the annotations ChoiceBox
         val annotation = AnnotationSelection(
@@ -577,20 +577,20 @@ class ParentController {
         cb.selectionModel.select(current)
     }
 
-//    private fun cutAndWriteSample(targetDirectory: String) {
-//        val mainImage = mainSamplingImage
+//    private fun cutAndWriteAnnotate(targetDirectory: String) {
+//        val mainImage = mainAnnotatingImage
 //            ?: run {
-//                val alert = Alert(Alert.AlertType.ERROR, "No sampling image selected.")
+//                val alert = Alert(Alert.AlertType.ERROR, "No annotating image selected.")
 //                alert.showAndWait()
 //                return
 //            }
 //        val dragBox = queryDragBox()
 //            ?: run {
-//                val alert = Alert(Alert.AlertType.ERROR, "No sample box selected.")
+//                val alert = Alert(Alert.AlertType.ERROR, "No annotate box selected.")
 //                alert.showAndWait()
 //                return
 //            }
-//        // Slice out the selected box from the main sampling image
+//        // Slice out the selected box from the main annotating image
 //        val sub = mainImage.getSubimage(
 //            dragBox.x.roundToInt(),
 //            dragBox.y.roundToInt(),
