@@ -9,7 +9,6 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.builder.SpringApplicationBuilder
 import org.springframework.context.ConfigurableApplicationContext
 
-
 @SpringBootApplication
 class ImageCleanerApplication(
     private val context: ConfigurableApplicationContext,
@@ -22,12 +21,7 @@ class ImageCleanerApplication(
         if (args == null) {
             throw IllegalArgumentException("No arguments specified, ending run.")
         }
-
-//        val scope = args.getOptionValues("scope")?.get(0)?.let { ScrapingScope.getOrNull(it.toUpperCase()) }
-//            ?: ScrapingScope.ALL
-
-//        logger.info("Scope: $scope")
-
+        
         uiApp.show()
 
         context.close()

@@ -21,13 +21,6 @@ class UiApp(
         val scene = Scene(root)
         stage.scene = scene
         stage.show()
-
-
-//        val vBox = VBox(tabPane)
-//        val scene = Scene(vBox)
-////        val scene = Scene(StackPane(l), 640.0, 480.0)
-//        stage.scene = scene
-//        stage.show()
     }
 
     protected fun getResourceUrl(resourceFilename: String): URL {
