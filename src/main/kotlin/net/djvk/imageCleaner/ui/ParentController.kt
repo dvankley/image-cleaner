@@ -93,10 +93,7 @@ class ParentController {
     lateinit var paneAnnotatingMain: Pane
 
     @FXML
-    lateinit var btnPositive: Button
-
-    @FXML
-    lateinit var btnNegative: Button
+    lateinit var btnSaveAnnotations: Button
 
     data class AnnotationSelection(
         var type: AnnotationType,
@@ -119,11 +116,7 @@ class ParentController {
     @FXML
     lateinit var rdbNegative: RadioButton
 
-    @FXML
-    lateinit var hboxPositiveImages: HBox
-
-    @FXML
-    lateinit var hboxNegativeImages: HBox
+    private var areAnnotationsDirty = false
 
     /**
      * Background task to load inputimages from files
@@ -398,30 +391,23 @@ class ParentController {
         }
     }
 
-    @FXML
-    private fun editorPress(event: MouseEvent) {
-        val path = selectFile("Select Working Directory")
-
-        if (path != null) {
-            txtWorkingDirectory.text = path
-        }
-    }
-
-    @FXML
-    private fun editorRelease(event: MouseEvent) {
-        val path = selectFile("Select Working Directory")
-
-        if (path != null) {
-            txtWorkingDirectory.text = path
-        }
-    }
-
     /**
      * Handles clicks on source image thumbnails, loading them into the main image view for annotating.
      */
     private val handleSourceThumbnailClick = EventHandler<MouseEvent> { event ->
+        if (areAnnotationsDirty) {
+            val alert = Alert(
+                Alert.AlertType.CONFIRMATION,
+                "Changes to annotations on your current image have not been saved, discard them and change images?"
+            )
+            val result = unwrapOptional(alert.showAndWait())
+                ?: return@EventHandler
+            if (result.buttonData != ButtonBar.ButtonData.OK_DONE) {
+                return@EventHandler
+            }
+        }
         val source = event.source as ImageView
-        logger.trace("Thumbnail click on ${source.id}")
+//        logger.trace("Thumbnail click on ${source.id}")
 
         // Read image into memory
         mainAnnotatingImage = ImageIO.read(File("$workingDirectory$sep$SOURCE_DIRECTORY_NAME$sep${source.id}"))
@@ -454,6 +440,7 @@ class ParentController {
 //        logger.trace("Annotate pressed event: ${event.x},${event.y}")
 
         forceRefreshChoiceBox(chbAnnotation)
+        setAnnotationsDirty(true)
     }
 
     @FXML
@@ -483,6 +470,8 @@ class ParentController {
          * Don't call forceRefreshChoiceBox(chbAnnotation) here because we don't currently display
          *  anything in the choiceBox that changes based on the end of the selection
          */
+
+        setAnnotationsDirty(true)
     }
 
     private val handleCurrentAnnotationChange = ChangeListener<AnnotationSelection> { value, old, new ->
@@ -523,6 +512,7 @@ class ParentController {
         val index = chbAnnotation.selectionModel.selectedIndex
         chbAnnotation.items.remove(chbAnnotation.selectionModel.selectedItem)
         selectAnnotationByIndex(max(index - 1, 0))
+        setAnnotationsDirty(true)
     }
 
     @FXML
@@ -545,6 +535,8 @@ class ParentController {
         // Select this annotation as the current one
         selectAnnotationByItem(annotation)
 
+        setAnnotationsDirty(true)
+
         return rect
     }
 
@@ -566,6 +558,7 @@ class ParentController {
         val type = AnnotationType.byNodeId[rdb.id] ?: return@ChangeListener
         chbAnnotation.selectionModel?.selectedItem?.type = type
         forceRefreshChoiceBox(chbAnnotation)
+        setAnnotationsDirty(true)
     }
 
     private fun <T> forceRefreshChoiceBox(cb: ChoiceBox<T>) {
@@ -575,6 +568,22 @@ class ParentController {
         // Smack the ChoiceBox in the side of the head to get it to update
         cb.items.setAll(items)
         cb.selectionModel.select(current)
+    }
+
+    @FXML
+    private fun handleSaveAnnotations(event: MouseEvent) {
+        saveAnnotations()
+    }
+
+    private fun setAnnotationsDirty(dirty: Boolean) {
+        btnSaveAnnotations.isDisable = !dirty
+        areAnnotationsDirty = dirty
+    }
+
+    private fun saveAnnotations() {
+        
+
+        setAnnotationsDirty(false)
     }
 
 //    private fun cutAndWriteAnnotate(targetDirectory: String) {
