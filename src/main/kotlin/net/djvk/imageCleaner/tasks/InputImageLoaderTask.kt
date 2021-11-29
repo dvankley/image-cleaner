@@ -15,7 +15,6 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.awt.image.BufferedImage
 import java.io.File
-import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.stream.Stream
@@ -66,12 +65,15 @@ class InputImageLoaderTask(
                 updateProgress(prog.toLong(), (fileCount * 2).toLong())
                 var index = 0
                 imgStream.map { img ->
-                    IntermediateImage(img, file.name.toString(), index++)
+                    IntermediateImage(
+                        img, file.name
+                            .toString()
+                            .replace(' ', '_'), index++
+                    )
                 }
             }
             .map { img ->
-                val extension = FilenameUtils.getExtension(img.inputFilename)
-                val filename = "${FilenameUtils.removeExtension(img.inputFilename)}_${img.index}.jpg"
+                val filename = "${FilenameUtils.removeExtension(img.inputFilename)}-${img.index}.jpg"
                 logger.debug("Writing input image $filename to source directory")
                 ImageIO.write(
                     img.img,

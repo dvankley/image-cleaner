@@ -1,13 +1,14 @@
 package net.djvk.imageCleaner.ui
 
+import javafx.beans.value.ChangeListener
 import javafx.concurrent.Task
 import javafx.embed.swing.SwingFXUtils
 import javafx.event.EventHandler
 import javafx.fxml.FXML
 import javafx.scene.control.*
 import javafx.scene.image.ImageView
-import javafx.scene.input.DragEvent
 import javafx.scene.input.MouseEvent
+import javafx.scene.layout.AnchorPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Pane
 import javafx.scene.paint.Color
@@ -32,8 +33,8 @@ import java.util.concurrent.Executors
 import javax.imageio.ImageIO
 import kotlin.io.path.pathString
 import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.roundToInt
 
 class ParentController {
     private val logger: Logger = LoggerFactory.getLogger(this::class.java)
@@ -48,13 +49,10 @@ class ParentController {
     lateinit var tabInput: Tab
 
     @FXML
-    lateinit var btnSelectInputDirectory: Button
+    lateinit var txtOpencvBinDirectory: TextField
 
     @FXML
     lateinit var txtInputDirectory: TextField
-
-    @FXML
-    lateinit var btnSelectWorkingDirectory: Button
 
     @FXML
     lateinit var txtWorkingDirectory: TextField
@@ -62,6 +60,7 @@ class ParentController {
     @FXML
     lateinit var btnLoadInputFiles: Button
 
+    private lateinit var opencvBinDirectory: Path
     private lateinit var inputDirectory: Path
     private lateinit var workingDirectory: Path
     //endregion
@@ -69,6 +68,9 @@ class ParentController {
     //region Sample Tab
     @FXML
     lateinit var tabSample: Tab
+
+    @FXML
+    lateinit var apSample: AnchorPane
 
     @FXML
     lateinit var prgInputLoading: ProgressBar
@@ -95,6 +97,27 @@ class ParentController {
 
     @FXML
     lateinit var btnNegative: Button
+
+    data class AnnotationSelection(
+        var type: AnnotationType,
+        val rect: Rectangle,
+    ) {
+        override fun toString(): String {
+            return "${type.displayValue}: ${rect.x.toInt()}, ${rect.y.toInt()}"
+        }
+    }
+
+    @FXML
+    lateinit var chbAnnotation: ChoiceBox<AnnotationSelection>
+
+    @FXML
+    lateinit var tgAnnotationType: ToggleGroup
+
+    @FXML
+    lateinit var rdbPositive: RadioButton
+
+    @FXML
+    lateinit var rdbNegative: RadioButton
 
     @FXML
     lateinit var hboxPositiveImages: HBox
@@ -146,6 +169,7 @@ class ParentController {
         }
 
     fun initialize() {
+        // Tab change listener
         tabPane.selectionModel.selectedItemProperty().addListener { _, _, new ->
             when (new) {
                 tabInput -> {
@@ -154,9 +178,22 @@ class ParentController {
                 else -> throw IllegalArgumentException("Invalid tab $new")
             }
         }
+        // Sample tab, annotation type change listener
+        tgAnnotationType.selectedToggleProperty().addListener(handleAnnotationTypeChange)
+        // Sample tab, selected annotation change listener
+        chbAnnotation.selectionModel.selectedItemProperty().addListener(handleCurrentAnnotationChange)
     }
 
     //region Input Tab
+    @FXML
+    private fun handleSelectOpencvBinDirectory(event: MouseEvent) {
+        val path = selectFile("Select OpenCV 3 Bin Directory")
+
+        if (path != null) {
+            txtOpencvBinDirectory.text = path
+        }
+    }
+
     @FXML
     private fun handleSelectInputDirectoryClick(event: MouseEvent) {
         val path = selectFile("Select Input Directory")
@@ -233,8 +270,15 @@ class ParentController {
     }
 
     private fun validateDirectorySelections() {
+        val opencvBin = txtOpencvBinDirectory.text
         val input = txtInputDirectory.text
         val working = txtWorkingDirectory.text
+        if (opencvBin == null || opencvBin == "") {
+            val alert = Alert(Alert.AlertType.ERROR, "OpenCV bin directory selection required")
+            alert.showAndWait()
+            tabPane.selectionModel.select(tabInput)
+            return
+        }
         if (input == null ||
             input == "" ||
             working == null ||
@@ -245,6 +289,7 @@ class ParentController {
             tabPane.selectionModel.select(tabInput)
             return
         }
+        opencvBinDirectory = Paths.get(opencvBin)
         inputDirectory = Paths.get(input)
         workingDirectory = Paths.get(working)
     }
@@ -346,6 +391,7 @@ class ParentController {
 
     //region Sample Tab
     private fun initSampleTab() {
+        // TODO: put all this on a background task
         validateDirectorySelections()
         if (sourceImages.isEmpty()) {
             loadSourceFiles()
@@ -384,45 +430,44 @@ class ParentController {
         ivSamplingMain.image = SwingFXUtils.toFXImage(mainSamplingImage, null)
     }
 
-    private var lastSampleClickTimestampMillis = 0L
-    private val SAMPLE_DRAG_BOX_ID = "sampleDragBox"
+    private val CURRENT_ANNOTATION_COLOR = Color.BLUE
 
-    private fun getDragBox(): Rectangle? {
-        return paneSamplingMain.lookup("#$SAMPLE_DRAG_BOX_ID") as? Rectangle
+    private fun buildDragBox(strokeColor: Color): Rectangle {
+        val rect = Rectangle()
+        rect.fill = Color.TRANSPARENT
+        rect.stroke = strokeColor
+        rect.strokeWidth = 5.0
+        return rect
+    }
+
+    private fun getCurrentlySelectedDragBox(): Rectangle? {
+        return chbAnnotation.selectionModel.selectedItem?.rect
     }
 
     @FXML
-    private fun handleSamplePressed(event: MouseEvent) {
-        val dragBox = getDragBox()
-            ?: run {
-                val rect = Rectangle()
-                rect.fill = Color.TRANSPARENT
-                rect.stroke = Color.BLUE
-                rect.strokeWidth = 5.0
-                rect.id = SAMPLE_DRAG_BOX_ID
-                paneSamplingMain.children.add(rect)
-                rect
-            }
+    private fun handleAnnotationPressed(event: MouseEvent) {
+        val dragBox = getCurrentlySelectedDragBox() ?: addNewAnnotation()
         dragBox.x = event.x
         dragBox.y = event.y
         dragBox.width = 10.0
         dragBox.height = 10.0
 //        logger.trace("Sample pressed event: ${event.x},${event.y}")
-        lastSampleClickTimestampMillis = System.currentTimeMillis()
+
+        forceRefreshChoiceBox(chbAnnotation)
     }
 
     @FXML
-    private fun handleSampleDragged(event: MouseEvent) {
-        sampleDrag(event)
+    private fun handleAnnotationDragged(event: MouseEvent) {
+        annotationDrag(event)
     }
 
     @FXML
-    private fun handleSampleReleased(event: MouseEvent) {
-        sampleDrag(event)
+    private fun handleAnnotationReleased(event: MouseEvent) {
+        annotationDrag(event)
     }
 
-    private fun sampleDrag(event: MouseEvent) {
-        val dragBox = getDragBox()
+    private fun annotationDrag(event: MouseEvent) {
+        val dragBox = getCurrentlySelectedDragBox()
             ?: run {
                 logger.warn("Failed to find sample drag box on mouse drag event")
                 return
@@ -433,41 +478,129 @@ class ParentController {
         dragBox.y = min(event.y, dragBox.y)
         dragBox.width = abs(event.x - dragBox.x)
         dragBox.height = abs(event.y - dragBox.y)
+
+        /**
+         * Don't call forceRefreshChoiceBox(chbAnnotation) here because we don't currently display
+         *  anything in the choiceBox that changes based on the end of the selection
+         */
+    }
+
+    private val handleCurrentAnnotationChange = ChangeListener<AnnotationSelection> { value, old, new ->
+        updateUiForNewAnnotationSelection(old, new)
+    }
+
+    private fun selectAnnotationByIndex(index: Int) {
+        val old = chbAnnotation.selectionModel.selectedItem
+        chbAnnotation.selectionModel.select(index)
+        updateUiForNewAnnotationSelection(old, chbAnnotation.selectionModel.selectedItem)
+    }
+
+    private fun selectAnnotationByItem(item: AnnotationSelection) {
+        val old = chbAnnotation.selectionModel.selectedItem
+        chbAnnotation.selectionModel.select(item)
+        updateUiForNewAnnotationSelection(old, item)
+    }
+
+    private fun updateUiForNewAnnotationSelection(oldItem: AnnotationSelection?, newItem: AnnotationSelection?) {
+        // Now that the old item isn't "current" anymore, update its color to match its type
+        oldItem?.rect?.stroke = oldItem?.type?.color
+
+        if (newItem != null) {
+            // Update the new item to the "current" color
+            newItem.rect.stroke = CURRENT_ANNOTATION_COLOR
+
+            // Update the annotation type radio button to match the newly selected item
+            tgAnnotationType.selectToggle(apSample.lookup("#${newItem.type.nodeId}") as Toggle)
+        }
     }
 
     @FXML
-    private fun handlePositiveSampleClick(event: MouseEvent) {
-        cutAndWriteSample(POSITIVE_DIRECTORY_NAME)
+    private fun handleDeleteCurrentAnnotation(event: MouseEvent) {
+        // Remove the rectangle from the UI
+        paneSamplingMain.children.remove(chbAnnotation.selectionModel.selectedItem.rect)
+
+        // Remove the element from the choice box
+        val index = chbAnnotation.selectionModel.selectedIndex
+        chbAnnotation.items.remove(chbAnnotation.selectionModel.selectedItem)
+        selectAnnotationByIndex(max(index - 1, 0))
     }
 
     @FXML
-    private fun handleNegativeSampleClick(event: MouseEvent) {
-        cutAndWriteSample(NEGATIVE_DIRECTORY_NAME)
+    private fun handleAddNewAnnotation(event: MouseEvent) {
+        addNewAnnotation()
     }
-    
-    private fun cutAndWriteSample(targetDirectory: String) {
-        val mainImage = mainSamplingImage
-            ?: run {
-                val alert = Alert(Alert.AlertType.ERROR, "No sampling image selected.")
-                alert.showAndWait()
-                return
-            }
-        val dragBox = getDragBox()
-            ?: run {
-                val alert = Alert(Alert.AlertType.ERROR, "No sample box selected.")
-                alert.showAndWait()
-                return
-            }
-        // Slice out the selected box from the main sampling image
-        val sub = mainImage.getSubimage(
-            dragBox.x.roundToInt(),
-            dragBox.y.roundToInt(),
-            dragBox.width.roundToInt(),
-            dragBox.height.roundToInt()
+
+    private fun addNewAnnotation(): Rectangle {
+        // Create a new rectangle object for this annotation and add it to the UI
+        val rect = buildDragBox(CURRENT_ANNOTATION_COLOR)
+        paneSamplingMain.children.add(rect)
+
+        // Add a new entry to the annotations ChoiceBox
+        val annotation = AnnotationSelection(
+            AnnotationType.byNodeId[(tgAnnotationType.selectedToggle as RadioButton).id]
+                ?: AnnotationType.POSITIVE,
+            rect
         )
+        chbAnnotation.items.add(annotation)
+        // Select this annotation as the current one
+        selectAnnotationByItem(annotation)
 
-        // Write it to a file
-        ImageIO.write(sub, "jpg", File("$workingDirectory$sep$targetDirectory$sep${System.currentTimeMillis()}.jpg"))
+        return rect
     }
+
+    enum class AnnotationType(
+        val displayValue: String,
+        val nodeId: String,
+        val color: Color,
+    ) {
+        POSITIVE("Positive", "rdbPositive", Color.GREEN),
+        NEGATIVE("Negative", "rdbNegative", Color.RED);
+
+        companion object {
+            val byNodeId = values().associateBy { it.nodeId }
+        }
+    }
+
+    private val handleAnnotationTypeChange = ChangeListener<Toggle> { value, old, new ->
+        val rdb = new as RadioButton
+        val type = AnnotationType.byNodeId[rdb.id] ?: return@ChangeListener
+        chbAnnotation.selectionModel?.selectedItem?.type = type
+        forceRefreshChoiceBox(chbAnnotation)
+    }
+
+    private fun <T> forceRefreshChoiceBox(cb: ChoiceBox<T>) {
+        val current = cb.selectionModel.selectedItem
+        // Make a copy of the items list so the clear() at the beginning of setAll() doesn't blank this out too
+        val items = cb.items.toList()
+        // Smack the ChoiceBox in the side of the head to get it to update
+        cb.items.setAll(items)
+        cb.selectionModel.select(current)
+    }
+
+//    private fun cutAndWriteSample(targetDirectory: String) {
+//        val mainImage = mainSamplingImage
+//            ?: run {
+//                val alert = Alert(Alert.AlertType.ERROR, "No sampling image selected.")
+//                alert.showAndWait()
+//                return
+//            }
+//        val dragBox = queryDragBox()
+//            ?: run {
+//                val alert = Alert(Alert.AlertType.ERROR, "No sample box selected.")
+//                alert.showAndWait()
+//                return
+//            }
+//        // Slice out the selected box from the main sampling image
+//        val sub = mainImage.getSubimage(
+//            dragBox.x.roundToInt(),
+//            dragBox.y.roundToInt(),
+//            dragBox.width.roundToInt(),
+//            dragBox.height.roundToInt()
+//        )
+//
+//        // Write it to a file
+//        ImageIO.write(sub, "jpg", File("$workingDirectory$sep$targetDirectory$sep${System.currentTimeMillis()}.jpg"))
+//    }
+
     //endregion
 }
