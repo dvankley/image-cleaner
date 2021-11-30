@@ -17,6 +17,8 @@ import javafx.stage.FileChooser
 import javafx.stage.Stage
 import kotlinx.coroutines.sync.Mutex
 import net.coobird.thumbnailator.Thumbnails
+import net.djvk.imageCleaner.annotation.NegativeAnnotationFileWriter
+import net.djvk.imageCleaner.annotation.PositiveAnnotationFileWriter
 import net.djvk.imageCleaner.constants.*
 import net.djvk.imageCleaner.tasks.InputImageLoaderTask
 import net.djvk.imageCleaner.util.DsStoreFilenameFilter
@@ -376,7 +378,7 @@ class ParentController {
      */
     private fun loadSourceFiles() {
         sourceImages = File("$workingDirectory$sep$SOURCE_DIRECTORY_NAME")
-            .listFiles()
+            .listFiles(DsStoreFilenameFilter)
             ?.map { it.name }
             ?: listOf()
     }
@@ -414,6 +416,7 @@ class ParentController {
 
         // Load full image into UI
         ivAnnotatingMain.image = SwingFXUtils.toFXImage(mainAnnotatingImage, null)
+        ivAnnotatingMain.id = source.id
     }
 
     private val CURRENT_ANNOTATION_COLOR = Color.BLUE
@@ -581,35 +584,18 @@ class ParentController {
     }
 
     private fun saveAnnotations() {
-        
+        val imagePath = Paths.get(ivAnnotatingMain.id)
+        val mainImage = mainAnnotatingImage
+            ?: throw IllegalArgumentException("Failed to save; missing main annotation image file buffer")
+
+        val negativeWriter = NegativeAnnotationFileWriter(workingDirectory, imagePath, mainImage)
+        negativeWriter.writeAnnotations(chbAnnotation.items.filter { it.type == AnnotationType.NEGATIVE })
+
+        val positiveWriter = PositiveAnnotationFileWriter(workingDirectory, imagePath, mainImage)
+        positiveWriter.writeAnnotations(chbAnnotation.items.filter { it.type == AnnotationType.POSITIVE })
 
         setAnnotationsDirty(false)
     }
-
-//    private fun cutAndWriteAnnotate(targetDirectory: String) {
-//        val mainImage = mainAnnotatingImage
-//            ?: run {
-//                val alert = Alert(Alert.AlertType.ERROR, "No annotating image selected.")
-//                alert.showAndWait()
-//                return
-//            }
-//        val dragBox = queryDragBox()
-//            ?: run {
-//                val alert = Alert(Alert.AlertType.ERROR, "No annotate box selected.")
-//                alert.showAndWait()
-//                return
-//            }
-//        // Slice out the selected box from the main annotating image
-//        val sub = mainImage.getSubimage(
-//            dragBox.x.roundToInt(),
-//            dragBox.y.roundToInt(),
-//            dragBox.width.roundToInt(),
-//            dragBox.height.roundToInt()
-//        )
-//
-//        // Write it to a file
-//        ImageIO.write(sub, "jpg", File("$workingDirectory$sep$targetDirectory$sep${System.currentTimeMillis()}.jpg"))
-//    }
 
     //endregion
 }
