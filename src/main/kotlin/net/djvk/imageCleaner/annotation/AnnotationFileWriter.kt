@@ -10,7 +10,7 @@ abstract class AnnotationFileWriter(
     val workingDirectory: Path,
     val imageFile: Path,
     val image: BufferedImage,
-){
+) {
     abstract fun writeAnnotations(annotations: List<ParentController.AnnotationSelection>)
 
     /**
