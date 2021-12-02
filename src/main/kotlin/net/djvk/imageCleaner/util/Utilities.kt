@@ -28,3 +28,5 @@ fun recursiveDeleteAllContents(directory: File) {
 val DsStoreFilenameFilter = FilenameFilter {dir, name ->
     name != ".DS_Store"
 }
+
+val filenameCleanerRegex = """[^a-zA-Z0-9_-]""".toRegex()

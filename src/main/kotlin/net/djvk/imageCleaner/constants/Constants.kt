@@ -1,11 +1,10 @@
 package net.djvk.imageCleaner.constants
 
-import net.djvk.imageCleaner.util.NormalizingUtils
 import java.io.File
 
-val SOURCE_DIRECTORY_NAME = "src"
-val POSITIVE_DIRECTORY_NAME = "pos"
-val NEGATIVE_DIRECTORY_NAME = "neg"
+const val SOURCE_DIRECTORY_NAME = "src"
+const val POSITIVE_DIRECTORY_NAME = "pos"
+const val NEGATIVE_DIRECTORY_NAME = "neg"
 
 val workingDirNames = setOf(SOURCE_DIRECTORY_NAME, POSITIVE_DIRECTORY_NAME, NEGATIVE_DIRECTORY_NAME)
 
@@ -17,8 +16,4 @@ val workingDirNames = setOf(SOURCE_DIRECTORY_NAME, POSITIVE_DIRECTORY_NAME, NEGA
 typealias SourceFilename = String
 typealias InputTaskResult = SourceFilename
 
-val sep = File.separator
-
-fun getImageId(filename: String, index: Int): String {
-    return "${NormalizingUtils.normalizeValue(filename)}|$index"
-}
+val sep: String = File.separator

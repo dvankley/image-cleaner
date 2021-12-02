@@ -68,7 +68,7 @@ class NegativeAnnotationFileWriter(
         )
 
         // Write it to a file
-        val filename = "${imageFile.name}_${System.currentTimeMillis()}.jpg"
+        val filename = "${FilenameUtils.removeExtension(imageFile.name)}_${System.currentTimeMillis()}.jpg"
         ImageIO.write(sub, "jpg", File("${targetDirectory.pathString}$sep$filename"))
         return filename
     }

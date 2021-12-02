@@ -6,6 +6,7 @@ import net.djvk.imageCleaner.constants.InputTaskResult
 import net.djvk.imageCleaner.constants.SOURCE_DIRECTORY_NAME
 import net.djvk.imageCleaner.constants.sep
 import net.djvk.imageCleaner.util.DsStoreFilenameFilter
+import net.djvk.imageCleaner.util.filenameCleanerRegex
 import org.apache.commons.io.FilenameUtils
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.pdmodel.PDResources
@@ -73,7 +74,11 @@ class InputImageLoaderTask(
                 }
             }
             .map { img ->
-                val filename = "${FilenameUtils.removeExtension(img.inputFilename)}-${img.index}.jpg"
+                // The OpenCV file formats don't tolerate whitespace or any other shenanigans in filenames, so
+                //  get rid of all that here
+                val inputFilename = FilenameUtils.removeExtension(img.inputFilename)
+                    .replace(filenameCleanerRegex, "")
+                val filename = "${inputFilename}-${img.index}.jpg"
                 logger.debug("Writing input image $filename to source directory")
                 ImageIO.write(
                     img.img,

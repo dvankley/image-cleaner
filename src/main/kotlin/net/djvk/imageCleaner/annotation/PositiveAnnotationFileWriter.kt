@@ -24,9 +24,9 @@ class PositiveAnnotationFileWriter(
     override fun writeAnnotations(annotations: List<ParentController.AnnotationSelection>) {
         val linesToWrite = mutableListOf<String>()
         if (annotations.isNotEmpty()) {
-            val out = StringBuilder("${SOURCE_DIRECTORY_NAME}$sep${imageFile.name} ${annotations.size}")
+            val out = StringBuilder("${SOURCE_DIRECTORY_NAME}$sep${imageFile.name}  ${annotations.size}")
             for (annotation in annotations) {
-                out.append("${annotation.rect.x.toInt()} ${annotation.rect.y.toInt()} ${annotation.rect.width.toInt()} ${annotation.rect.height.toInt()} ")
+                out.append("  ${annotation.rect.x.toInt()} ${annotation.rect.y.toInt()} ${annotation.rect.width.toInt()} ${annotation.rect.height.toInt()} ")
             }
             linesToWrite.add(out.toString())
         }
