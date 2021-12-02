@@ -118,6 +118,12 @@ class ParentController {
     @FXML
     lateinit var rdbNegative: RadioButton
 
+    @FXML
+    lateinit var spnPosWidth: Spinner<Int>
+
+    @FXML
+    lateinit var spnPosHeight: Spinner<Int>
+
     private var areAnnotationsDirty = false
 
     /**
@@ -177,6 +183,10 @@ class ParentController {
         tgAnnotationType.selectedToggleProperty().addListener(handleAnnotationTypeChange)
         // Annotate tab, selected annotation change listener
         chbAnnotation.selectionModel.selectedItemProperty().addListener(handleCurrentAnnotationChange)
+
+        // Spinner value factories
+        spnPosWidth.valueFactory = SpinnerValueFactory.IntegerSpinnerValueFactory(20, 1000, 150, 10)
+        spnPosHeight.valueFactory = SpinnerValueFactory.IntegerSpinnerValueFactory(20, 1000, 150, 10)
     }
 
     //region Input Tab
@@ -421,11 +431,21 @@ class ParentController {
 
     private val CURRENT_ANNOTATION_COLOR = Color.BLUE
 
+    private fun getCurrentAnnotationType(): AnnotationType {
+        return AnnotationType.byNodeId[(tgAnnotationType.selectedToggle as RadioButton).id]
+            ?: AnnotationType.POSITIVE
+    }
+
     private fun buildDragBox(strokeColor: Color): Rectangle {
         val rect = Rectangle()
         rect.fill = Color.TRANSPARENT
         rect.stroke = strokeColor
         rect.strokeWidth = 5.0
+        if (getCurrentAnnotationType() == AnnotationType.POSITIVE) {
+            // Positive samples need to have a consistent size
+            rect.width = spnPosWidth.value.toDouble()
+            rect.height = spnPosHeight.value.toDouble()
+        }
         return rect
     }
 
@@ -438,8 +458,14 @@ class ParentController {
         val dragBox = getCurrentlySelectedDragBox() ?: addNewAnnotation()
         dragBox.x = event.x
         dragBox.y = event.y
-        dragBox.width = 10.0
-        dragBox.height = 10.0
+        if (getCurrentAnnotationType() == AnnotationType.POSITIVE) {
+            // Positive samples need to have a consistent size
+            dragBox.width = spnPosWidth.value.toDouble()
+            dragBox.height = spnPosHeight.value.toDouble()
+        } else {
+            dragBox.width = 10.0
+            dragBox.height = 10.0
+        }
 //        logger.trace("Annotate pressed event: ${event.x},${event.y}")
 
         forceRefreshChoiceBox(chbAnnotation)
@@ -464,10 +490,18 @@ class ParentController {
             }
 
 //        logger.trace("Annotate dragged/released event: ${event.x},${event.y}; box: ${dragBox.x},${dragBox.y}")
-        dragBox.x = min(event.x, dragBox.x)
-        dragBox.y = min(event.y, dragBox.y)
-        dragBox.width = abs(event.x - dragBox.x)
-        dragBox.height = abs(event.y - dragBox.y)
+        if (getCurrentAnnotationType() == AnnotationType.POSITIVE) {
+            dragBox.x = event.x
+            dragBox.y = event.y
+            // Positive samples need to have a consistent size
+            dragBox.width = spnPosWidth.value.toDouble()
+            dragBox.height = spnPosHeight.value.toDouble()
+        } else {
+            dragBox.x = min(event.x, dragBox.x)
+            dragBox.y = min(event.y, dragBox.y)
+            dragBox.width = abs(event.x - dragBox.x)
+            dragBox.height = abs(event.y - dragBox.y)
+        }
 
         /**
          * Don't call forceRefreshChoiceBox(chbAnnotation) here because we don't currently display
@@ -529,11 +563,7 @@ class ParentController {
         paneAnnotatingMain.children.add(rect)
 
         // Add a new entry to the annotations ChoiceBox
-        val annotation = AnnotationSelection(
-            AnnotationType.byNodeId[(tgAnnotationType.selectedToggle as RadioButton).id]
-                ?: AnnotationType.POSITIVE,
-            rect
-        )
+        val annotation = AnnotationSelection(getCurrentAnnotationType(), rect)
         chbAnnotation.items.add(annotation)
         // Select this annotation as the current one
         selectAnnotationByItem(annotation)

@@ -6,6 +6,7 @@
 <?import javafx.scene.control.ProgressBar?>
 <?import javafx.scene.control.RadioButton?>
 <?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.Spinner?>
 <?import javafx.scene.control.Tab?>
 <?import javafx.scene.control.TabPane?>
 <?import javafx.scene.control.TextField?>
@@ -58,16 +59,20 @@
                            </content>
                         </ScrollPane>
                         <ChoiceBox fx:id="chbAnnotation" layoutX="14.0" layoutY="654.0" prefHeight="26.0" prefWidth="161.0" />
-                        <Button fx:id="btnDeleteCurrentAnnotation" layoutX="364.0" layoutY="654.0" mnemonicParsing="false" onMouseClicked="#handleDeleteCurrentAnnotation" text="Delete Current" />
-                        <Button fx:id="btnAddNewAnnotation" layoutX="364.0" layoutY="688.0" mnemonicParsing="false" onMouseClicked="#handleAddNewAnnotation" text="Add New" />
-                        <RadioButton id="rdbNegative" fx:id="rdbNegative" layoutX="211.0" layoutY="707.0" mnemonicParsing="false" text="Negative">
+                        <Button fx:id="btnDeleteCurrentAnnotation" layoutX="345.0" layoutY="657.0" mnemonicParsing="false" onMouseClicked="#handleDeleteCurrentAnnotation" text="Delete Current" />
+                        <Button fx:id="btnAddNewAnnotation" layoutX="345.0" layoutY="691.0" mnemonicParsing="false" onMouseClicked="#handleAddNewAnnotation" text="Add New" />
+                        <RadioButton id="rdbNegative" fx:id="rdbNegative" layoutX="192.0" layoutY="705.0" mnemonicParsing="false" text="Negative">
                            <toggleGroup>
                               <ToggleGroup fx:id="tgAnnotationType" />
                            </toggleGroup>
                         </RadioButton>
-                        <RadioButton id="rdbPositive" fx:id="rdbPositive" layoutX="211.0" layoutY="682.0" mnemonicParsing="false" selected="true" text="Positive" toggleGroup="$tgAnnotationType" />
-                        <Label layoutX="208.0" layoutY="655.0" text="Current Annotation Type:" />
-                        <Button fx:id="btnSaveAnnotations" disable="true" layoutX="534.0" layoutY="655.0" mnemonicParsing="false" onMouseClicked="#handleSaveAnnotations" text="Save to File" />
+                        <RadioButton id="rdbPositive" fx:id="rdbPositive" layoutX="192.0" layoutY="680.0" mnemonicParsing="false" selected="true" text="Positive" toggleGroup="$tgAnnotationType" />
+                        <Label layoutX="189.0" layoutY="653.0" text="Current Annotation Type:" />
+                        <Button fx:id="btnSaveAnnotations" disable="true" layoutX="345.0" layoutY="728.0" mnemonicParsing="false" onMouseClicked="#handleSaveAnnotations" text="Save to File" />
+                        <Spinner fx:id="spnPosWidth" editable="true" layoutX="506.0" layoutY="685.0" prefHeight="26.0" prefWidth="76.0" />
+                        <Label layoutX="533.0" layoutY="653.0" text="Positive Annotation Size" />
+                        <Spinner fx:id="spnPosHeight" editable="true" layoutX="617.0" layoutY="685.0" prefHeight="26.0" prefWidth="76.0" />
+                        <Label layoutX="592.0" layoutY="690.0" text="by" />
                      </children></AnchorPane>
             </content>
           </Tab>
