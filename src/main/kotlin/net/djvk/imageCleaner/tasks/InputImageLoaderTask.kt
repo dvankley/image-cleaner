@@ -51,6 +51,7 @@ class InputImageLoaderTask(
         val files = inputDirectory.toFile().listFiles(DsStoreFilenameFilter)
             ?: throw IllegalArgumentException("Input directory empty")
         val fileCount = files.size
+        val imageCount = AtomicInteger(0)
         logger.debug("$fileCount input files to read")
 //            .toFlux()
 
@@ -62,10 +63,11 @@ class InputImageLoaderTask(
             .flatMap { file ->
                 logger.debug("Loading input image from $file")
                 val imgStream = readImages(file)
-                val prog = imageReadProgress.incrementAndGet()
-                updateProgress(prog.toLong(), (fileCount * 2).toLong())
+                val readProgress = imageReadProgress.incrementAndGet()
+                updateProgress(readProgress.toLong(), (fileCount * 2).toLong())
                 var index = 0
                 imgStream.map { img ->
+                    imageCount.incrementAndGet()
                     IntermediateImage(
                         img, file.name
                             .toString()
@@ -85,8 +87,8 @@ class InputImageLoaderTask(
                     "jpg",
                     File("$workingDirectory$sep$SOURCE_DIRECTORY_NAME$sep$filename")
                 )
-                val prog = imageWriteProgress.incrementAndGet()
-                updateProgress((fileCount + prog).toLong(), (fileCount * 2).toLong())
+                val writeProgress = imageWriteProgress.incrementAndGet()
+                updateProgress((imageCount.get() + writeProgress).toLong(), (imageCount.get() * 2).toLong())
                 filename
             }
             .toList()

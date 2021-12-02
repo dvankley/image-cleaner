@@ -13,7 +13,7 @@ import javafx.scene.layout.HBox
 import javafx.scene.layout.Pane
 import javafx.scene.paint.Color
 import javafx.scene.shape.Rectangle
-import javafx.stage.FileChooser
+import javafx.stage.DirectoryChooser
 import javafx.stage.Stage
 import kotlinx.coroutines.sync.Mutex
 import net.coobird.thumbnailator.Thumbnails
@@ -192,7 +192,7 @@ class ParentController {
     //region Input Tab
     @FXML
     private fun handleSelectOpencvBinDirectory(event: MouseEvent) {
-        val path = selectFile("Select OpenCV 3 Bin Directory")
+        val path = selectDirectory("Select OpenCV 3 Bin Directory")
 
         if (path != null) {
             txtOpencvBinDirectory.text = path
@@ -201,7 +201,7 @@ class ParentController {
 
     @FXML
     private fun handleSelectInputDirectoryClick(event: MouseEvent) {
-        val path = selectFile("Select Input Directory")
+        val path = selectDirectory("Select Input Directory")
 
         if (path != null) {
             txtInputDirectory.text = path
@@ -210,17 +210,17 @@ class ParentController {
 
     @FXML
     private fun handleSelectWorkingDirectoryClick(event: MouseEvent) {
-        val path = selectFile("Select Working Directory")
+        val path = selectDirectory("Select Working Directory")
 
         if (path != null) {
             txtWorkingDirectory.text = path
         }
     }
 
-    private fun selectFile(title: String): String? {
-        val fileChooser = FileChooser()
-        fileChooser.title = title
-        return fileChooser.showOpenDialog(stage)?.path
+    private fun selectDirectory(title: String): String? {
+        val chooser = DirectoryChooser()
+        chooser.title = title
+        return chooser.showDialog(stage)?.path
     }
 
     @FXML
@@ -371,6 +371,7 @@ class ParentController {
             val result = stateEvent.source.value as List<InputTaskResult>
             logger.info("Loaded ${result.size} input images")
             prgInputLoading.isVisible = false
+            btnLoadInputFiles.isDisable = true
             sourceImages = result
         }
         task.setOnCancelled {
