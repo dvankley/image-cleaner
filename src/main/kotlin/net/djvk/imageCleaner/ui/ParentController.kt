@@ -489,6 +489,10 @@ class ParentController {
         // Load full image into UI
         ivAnnotatingMain.image = SwingFXUtils.toFXImage(mainAnnotatingImage, null)
         ivAnnotatingMain.id = source.id
+
+        // Reset annotations
+        deleteAllAnnotations()
+        setAnnotationsDirty(false)
     }
 
     private val CURRENT_ANNOTATION_COLOR = Color.BLUE
@@ -612,6 +616,14 @@ class ParentController {
         chbAnnotation.items.remove(chbAnnotation.selectionModel.selectedItem)
         selectAnnotationByIndex(max(index - 1, 0))
         setAnnotationsDirty(true)
+    }
+
+    private fun deleteAllAnnotations() {
+        // Remove the rectangles from the UI
+        paneAnnotatingMain.children.removeAll(paneAnnotatingMain.children.filterIsInstance<Rectangle>())
+
+        // Remove the elements from the choice box
+        chbAnnotation.items.clear()
     }
 
     @FXML
