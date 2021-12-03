@@ -16,11 +16,12 @@ import javafx.scene.shape.Rectangle
 import javafx.stage.DirectoryChooser
 import javafx.stage.Stage
 import kotlinx.coroutines.sync.Mutex
-import net.coobird.thumbnailator.Thumbnails
 import net.djvk.imageCleaner.annotation.NegativeAnnotationFileWriter
 import net.djvk.imageCleaner.annotation.PositiveAnnotationFileWriter
 import net.djvk.imageCleaner.constants.*
 import net.djvk.imageCleaner.tasks.InputImageLoaderTask
+import net.djvk.imageCleaner.tasks.SourceImageThumbnailerTask
+import net.djvk.imageCleaner.tasks.ThumbnailTaskResult
 import net.djvk.imageCleaner.util.DsStoreFilenameFilter
 import net.djvk.imageCleaner.util.recursiveDeleteAllContents
 import net.djvk.imageCleaner.util.unwrapOptional
@@ -33,6 +34,7 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.concurrent.Executors
 import javax.imageio.ImageIO
+import kotlin.io.path.name
 import kotlin.io.path.pathString
 import kotlin.math.abs
 import kotlin.math.max
@@ -62,23 +64,38 @@ class ParentController {
     @FXML
     lateinit var btnLoadInputFiles: Button
 
+    @FXML
+    lateinit var prgInputLoading: ProgressBar
+
     private lateinit var opencvBinDirectory: Path
     private lateinit var inputDirectory: Path
     private lateinit var workingDirectory: Path
+
+    /**
+     * Background task to load input images from files into source image files
+     */
+    private var inputImageLoadingTask: Task<List<InputTaskResult>>? = null
+    private val inputImageLoadingMutex = Mutex()
     //endregion
 
     //region Annotate Tab
     @FXML
     lateinit var tabAnnotate: Tab
 
+    /**
+     * Background task to load input images from files into source image files
+     */
+    private var inputThumbnailLoadingTask: Task<List<ThumbnailTaskResult>>? = null
+    private val inputThumbnailLoadingMutex = Mutex()
+
+    @FXML
+    lateinit var prgLoadThumbnails: ProgressBar
+
+    @FXML
+    lateinit var scrlThumbnails: ScrollPane
+
     @FXML
     lateinit var apAnnotate: AnchorPane
-
-    @FXML
-    lateinit var prgInputLoading: ProgressBar
-
-    @FXML
-    lateinit var imgEditor: ImageView
 
     @FXML
     lateinit var hboxSourceImages: HBox
@@ -126,12 +143,6 @@ class ParentController {
 
     private var areAnnotationsDirty = false
 
-    /**
-     * Background task to load inputimages from files
-     */
-    private var inputImageLoadingTask: Task<List<InputTaskResult>>? = null
-    private val inputImageLoadingMutex = Mutex()
-
     //endregion
 
     private val stage
@@ -141,33 +152,34 @@ class ParentController {
      * List of source file names, with extensions.
      */
     private var sourceImages = listOf<SourceFilename>()
-        /**
-         * This setter is called when [sourceImages] are first loaded, either from input
-         *  images or straight from the source file..
-         * It updates the annotate UI with thumbnails and clears existing training data.
-         */
-        set(value) {
-            field = value
 
-            // Update the UI with the new set of images
-
-            // Remove the old images
-            hboxSourceImages.children.clear()
-            // Add the new ones
-            hboxSourceImages.children.addAll(value.map { srcImgFilename ->
-                val iv = ImageView(
-                    SwingFXUtils.toFXImage(
-                        Thumbnails
-                            .of("$workingDirectory$sep$SOURCE_DIRECTORY_NAME$sep$srcImgFilename")
-                            .size(50, 50)
-                            .asBufferedImage(), null
-                    )
-                )
-                iv.id = srcImgFilename
-                iv.onMouseClicked = handleSourceThumbnailClick
-                iv
-            })
-        }
+    /**
+     * This setter is called when [sourceImages] are first loaded, either from input
+     *  images or straight from the source file..
+     * It updates the annotate UI with thumbnails and clears existing training data.
+     */
+//        set(value) {
+//            field = value
+//
+//            // Update the UI with the new set of images
+//
+//            // Remove the old images
+//            hboxSourceImages.children.clear()
+//            // Add the new ones
+//            hboxSourceImages.children.addAll(value.map { srcImgFilename ->
+//                val iv = ImageView(
+//                    SwingFXUtils.toFXImage(
+//                        Thumbnails
+//                            .of("$workingDirectory$sep$SOURCE_DIRECTORY_NAME$sep$srcImgFilename")
+//                            .size(50, 50)
+//                            .asBufferedImage(), null
+//                    )
+//                )
+//                iv.id = srcImgFilename
+//                iv.onMouseClicked = handleSourceThumbnailClick
+//                iv
+//            })
+//        }
 
     fun initialize() {
         // Tab change listener
@@ -373,6 +385,8 @@ class ParentController {
             prgInputLoading.isVisible = false
             btnLoadInputFiles.isDisable = true
             sourceImages = result
+            // Kick off the task to thumbnail the source images
+            loadSourceImageThumbnails(workingDirectory)
         }
         task.setOnCancelled {
             prgInputLoading.isVisible = false
@@ -397,11 +411,58 @@ class ParentController {
 
     //region Annotate Tab
     private fun initAnnotateTab() {
-        // TODO: put all this on a background task
         validateDirectorySelections()
         if (sourceImages.isEmpty()) {
             loadSourceFiles()
         }
+        loadSourceImageThumbnails(workingDirectory)
+    }
+
+    /**
+     * Loads and thumbnails source files with a background task.
+     * This is the first part of the second stage of the pipeline, annotation and sampling.
+     * Source files previously loaded into the filesystem with their filenames in [sourceImages] are
+     *  loaded into memory, converted into thumbnails for display, and set into [hboxSourceImages]
+     *  for use in the UI.
+     */
+    private fun loadSourceImageThumbnails(workingDirectory: Path) {
+        if (!inputThumbnailLoadingMutex.tryLock()) {
+            logger.warn("Not kicking off source file thumbnail process because lock is held")
+            return
+        }
+        if (hboxSourceImages.children.isNotEmpty()) {
+            logger.info("Skipping source file thumbnail process because thumbnails are already loaded")
+            return
+        }
+
+        logger.info("Kicking off source file thumbnail process")
+        val task = SourceImageThumbnailerTask(
+            workingDirectory,
+            inputThumbnailLoadingMutex,
+        )
+        prgLoadThumbnails.isVisible = true
+        prgLoadThumbnails.progressProperty().bind(task.progressProperty())
+        inputThumbnailLoadingTask = task
+        task.setOnSucceeded { stateEvent ->
+            val results = stateEvent.source.value as List<ThumbnailTaskResult>
+            logger.info("Thumbnailed ${results.size} input images")
+            prgLoadThumbnails.isVisible = false
+            scrlThumbnails.isVisible = true
+            hboxSourceImages.children.clear()
+            hboxSourceImages.children.addAll(results.map { result ->
+                val iv = ImageView(result.thumbnail)
+                iv.id = result.filename.name
+                iv.onMouseClicked = handleSourceThumbnailClick
+                iv
+            })
+        }
+        task.setOnCancelled {
+            prgLoadThumbnails.isVisible = false
+        }
+        task.setOnFailed {
+            prgLoadThumbnails.isVisible = false
+        }
+        pool.submit(task)
     }
 
     /**
