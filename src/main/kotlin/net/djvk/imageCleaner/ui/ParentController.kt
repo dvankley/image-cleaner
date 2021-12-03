@@ -16,13 +16,15 @@ import javafx.scene.shape.Rectangle
 import javafx.stage.DirectoryChooser
 import javafx.stage.Stage
 import kotlinx.coroutines.sync.Mutex
-import net.djvk.imageCleaner.annotation.NegativeAnnotationFileWriter
-import net.djvk.imageCleaner.annotation.PositiveAnnotationFileWriter
+import net.djvk.imageCleaner.annotation.read.PositiveAnnotationFileReader
+import net.djvk.imageCleaner.annotation.write.NegativeAnnotationFileWriter
+import net.djvk.imageCleaner.annotation.write.PositiveAnnotationFileWriter
 import net.djvk.imageCleaner.constants.*
 import net.djvk.imageCleaner.tasks.InputImageLoaderTask
 import net.djvk.imageCleaner.tasks.SourceImageThumbnailerTask
 import net.djvk.imageCleaner.tasks.ThumbnailTaskResult
 import net.djvk.imageCleaner.util.DsStoreFilenameFilter
+import net.djvk.imageCleaner.util.buildAnnotationRectangle
 import net.djvk.imageCleaner.util.recursiveDeleteAllContents
 import net.djvk.imageCleaner.util.unwrapOptional
 import org.slf4j.Logger
@@ -492,6 +494,9 @@ class ParentController {
 
         // Reset annotations
         deleteAllAnnotations()
+
+        // Load any existing annotations that have been saved to files
+        loadAnnotationsFromFile(source.id)
         setAnnotationsDirty(false)
     }
 
@@ -503,10 +508,7 @@ class ParentController {
     }
 
     private fun buildDragBox(strokeColor: Color): Rectangle {
-        val rect = Rectangle()
-        rect.fill = Color.TRANSPARENT
-        rect.stroke = strokeColor
-        rect.strokeWidth = 5.0
+        val rect = buildAnnotationRectangle(strokeColor)
         if (getCurrentAnnotationType() == AnnotationType.POSITIVE) {
             // Positive samples need to have a consistent size
             rect.width = spnPosWidth.value.toDouble()
@@ -521,7 +523,14 @@ class ParentController {
 
     @FXML
     private fun handleAnnotationPressed(event: MouseEvent) {
-        val dragBox = getCurrentlySelectedDragBox() ?: addNewAnnotation()
+        val dragBox = getCurrentlySelectedDragBox() ?: run {
+            val annotation = AnnotationSelection(
+                getCurrentAnnotationType(),
+                buildDragBox(CURRENT_ANNOTATION_COLOR)
+            )
+            addNewAnnotation(annotation)
+            annotation.rect
+        }
         dragBox.x = event.x
         dragBox.y = event.y
         if (getCurrentAnnotationType() == AnnotationType.POSITIVE) {
@@ -626,25 +635,32 @@ class ParentController {
         chbAnnotation.items.clear()
     }
 
-    @FXML
-    private fun handleAddNewAnnotation(event: MouseEvent) {
-        addNewAnnotation()
+    private fun loadAnnotationsFromFile(filename: SourceFilename) {
+        val reader = PositiveAnnotationFileReader(workingDirectory, Paths.get(filename))
+        val annotations = reader.readAnnotations()
+
+        annotations.forEach { annotation ->
+            addNewAnnotation(annotation)
+        }
+        setAnnotationsDirty(false)
     }
 
-    private fun addNewAnnotation(): Rectangle {
-        // Create a new rectangle object for this annotation and add it to the UI
-        val rect = buildDragBox(CURRENT_ANNOTATION_COLOR)
-        paneAnnotatingMain.children.add(rect)
+    @FXML
+    private fun handleAddNewAnnotation(event: MouseEvent) {
+        addNewAnnotation(
+            AnnotationSelection(getCurrentAnnotationType(), buildDragBox(CURRENT_ANNOTATION_COLOR))
+        )
+    }
+
+    private fun addNewAnnotation(annotation: AnnotationSelection) {
+        paneAnnotatingMain.children.add(annotation.rect)
 
         // Add a new entry to the annotations ChoiceBox
-        val annotation = AnnotationSelection(getCurrentAnnotationType(), rect)
         chbAnnotation.items.add(annotation)
         // Select this annotation as the current one
         selectAnnotationByItem(annotation)
 
         setAnnotationsDirty(true)
-
-        return rect
     }
 
     enum class AnnotationType(

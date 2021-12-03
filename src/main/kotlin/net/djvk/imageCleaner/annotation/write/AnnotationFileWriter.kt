@@ -1,4 +1,4 @@
-package net.djvk.imageCleaner.annotation
+package net.djvk.imageCleaner.annotation.write
 
 import net.djvk.imageCleaner.ui.ParentController
 import java.awt.image.BufferedImage

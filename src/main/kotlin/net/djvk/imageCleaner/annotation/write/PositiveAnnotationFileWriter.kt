@@ -1,13 +1,12 @@
-package net.djvk.imageCleaner.annotation
+package net.djvk.imageCleaner.annotation.write
 
+import net.djvk.imageCleaner.constants.POSITIVE_ANNOTATION_FILENAME
 import net.djvk.imageCleaner.constants.SOURCE_DIRECTORY_NAME
 import net.djvk.imageCleaner.constants.sep
 import net.djvk.imageCleaner.ui.ParentController
 import java.awt.image.BufferedImage
 import java.nio.file.Path
 import kotlin.io.path.name
-
-private const val POSITIVE_ANNOTATION_FILENAME = "pos.txt"
 
 class PositiveAnnotationFileWriter(
     workingDirectory: Path,
@@ -26,7 +25,7 @@ class PositiveAnnotationFileWriter(
         if (annotations.isNotEmpty()) {
             val out = StringBuilder("${SOURCE_DIRECTORY_NAME}$sep${imageFile.name}  ${annotations.size}")
             for (annotation in annotations) {
-                out.append("  ${annotation.rect.x.toInt()} ${annotation.rect.y.toInt()} ${annotation.rect.width.toInt()} ${annotation.rect.height.toInt()} ")
+                out.append("  ${annotation.rect.x.toInt()} ${annotation.rect.y.toInt()} ${annotation.rect.width.toInt()} ${annotation.rect.height.toInt()}")
             }
             linesToWrite.add(out.toString())
         }

@@ -1,5 +1,6 @@
-package net.djvk.imageCleaner.annotation
+package net.djvk.imageCleaner.annotation.write
 
+import net.djvk.imageCleaner.constants.NEGATIVE_ANNOTATION_FILENAME
 import net.djvk.imageCleaner.constants.NEGATIVE_DIRECTORY_NAME
 import net.djvk.imageCleaner.constants.sep
 import net.djvk.imageCleaner.ui.ParentController
@@ -13,8 +14,6 @@ import kotlin.io.path.exists
 import kotlin.io.path.name
 import kotlin.io.path.pathString
 import kotlin.math.roundToInt
-
-private const val NEGATIVE_ANNOTATION_FILENAME = "neg.txt"
 
 class NegativeAnnotationFileWriter(
     workingDirectory: Path,
