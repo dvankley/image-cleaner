@@ -52,106 +52,6 @@ class ParentController {
 
     private val pool = Executors.newWorkStealingPool()
 
-    //region Input Tab
-    @FXML
-    lateinit var tabInput: Tab
-
-    @FXML
-    lateinit var txtOpencvBinDirectory: TextField
-
-    @FXML
-    lateinit var txtInputDirectory: TextField
-
-    @FXML
-    lateinit var txtWorkingDirectory: TextField
-
-    @FXML
-    lateinit var btnLoadInputFiles: Button
-
-    @FXML
-    lateinit var prgInputLoading: ProgressBar
-
-    private lateinit var opencvBinDirectory: Path
-    private lateinit var inputDirectory: Path
-    private lateinit var workingDirectory: Path
-
-    /**
-     * Background task to load input images from files into source image files
-     */
-    private var inputImageLoadingTask: Task<List<InputTaskResult>>? = null
-    private val inputImageLoadingMutex = Mutex()
-    //endregion
-
-    //region Annotate Tab
-    @FXML
-    lateinit var tabAnnotate: Tab
-
-    /**
-     * Background task to load input images from files into source image files
-     */
-    private var inputThumbnailLoadingTask: Task<List<ThumbnailTaskResult>>? = null
-    private val inputThumbnailLoadingMutex = Mutex()
-
-    @FXML
-    lateinit var prgLoadThumbnails: ProgressBar
-
-    @FXML
-    lateinit var paneThumbnails: Pane
-
-    @FXML
-    lateinit var scrlThumbnails: ScrollPane
-
-    @FXML
-    lateinit var apAnnotate: AnchorPane
-
-    @FXML
-    lateinit var hboxSourceImages: HBox
-
-    @FXML
-    lateinit var ivAnnotatingMain: ImageView
-
-    /**
-     * [BufferedImage] version of [ivAnnotatingMain]
-     */
-    private var mainAnnotatingImage: BufferedImage? = null
-
-    @FXML
-    lateinit var paneAnnotatingMain: Pane
-
-    @FXML
-    lateinit var btnSaveAnnotations: Button
-
-    data class AnnotationSelection(
-        var type: AnnotationType,
-        val rect: Rectangle,
-    ) {
-        override fun toString(): String {
-            return "${type.displayValue}: ${rect.x.toInt()}, ${rect.y.toInt()}"
-        }
-    }
-
-    @FXML
-    lateinit var chbAnnotation: ChoiceBox<AnnotationSelection>
-
-    @FXML
-    lateinit var tgAnnotationType: ToggleGroup
-
-    @FXML
-    lateinit var rdbPositive: RadioButton
-
-    @FXML
-    lateinit var rdbNegative: RadioButton
-
-    @FXML
-    lateinit var spnPosWidth: Spinner<Int>
-
-    @FXML
-    lateinit var spnPosHeight: Spinner<Int>
-
-    private var areAnnotationsDirty = false
-
-    //endregion
-
     private val stage
         get() = txtInputDirectory.scene.window as Stage
 
@@ -209,6 +109,34 @@ class ParentController {
     }
 
     //region Input Tab
+    @FXML
+    lateinit var tabInput: Tab
+
+    @FXML
+    lateinit var txtOpencvBinDirectory: TextField
+
+    @FXML
+    lateinit var txtInputDirectory: TextField
+
+    @FXML
+    lateinit var txtWorkingDirectory: TextField
+
+    @FXML
+    lateinit var btnLoadInputFiles: Button
+
+    @FXML
+    lateinit var prgInputLoading: ProgressBar
+
+    private lateinit var opencvBinDirectory: Path
+    private lateinit var inputDirectory: Path
+    private lateinit var workingDirectory: Path
+
+    /**
+     * Background task to load input images from files into source image files
+     */
+    private var inputImageLoadingTask: Task<List<InputTaskResult>>? = null
+    private val inputImageLoadingMutex = Mutex()
+
     @FXML
     private fun handleSelectOpencvBinDirectory(event: MouseEvent) {
         val path = selectDirectory("Select OpenCV 3 Bin Directory")
@@ -417,6 +345,73 @@ class ParentController {
     //endregion
 
     //region Annotate Tab
+    @FXML
+    lateinit var tabAnnotate: Tab
+
+    /**
+     * Background task to load input images from files into source image files
+     */
+    private var inputThumbnailLoadingTask: Task<List<ThumbnailTaskResult>>? = null
+    private val inputThumbnailLoadingMutex = Mutex()
+
+    @FXML
+    lateinit var prgLoadThumbnails: ProgressBar
+
+    @FXML
+    lateinit var paneThumbnails: Pane
+
+    @FXML
+    lateinit var scrlThumbnails: ScrollPane
+
+    @FXML
+    lateinit var apAnnotate: AnchorPane
+
+    @FXML
+    lateinit var hboxSourceImages: HBox
+
+    @FXML
+    lateinit var ivAnnotatingMain: ImageView
+
+    /**
+     * [BufferedImage] version of [ivAnnotatingMain]
+     */
+    private var mainAnnotatingImage: BufferedImage? = null
+
+    @FXML
+    lateinit var paneAnnotatingMain: Pane
+
+    @FXML
+    lateinit var btnSaveAnnotations: Button
+
+    data class AnnotationSelection(
+        var type: AnnotationType,
+        val rect: Rectangle,
+    ) {
+        override fun toString(): String {
+            return "${type.displayValue}: ${rect.x.toInt()}, ${rect.y.toInt()}"
+        }
+    }
+
+    @FXML
+    lateinit var chbAnnotation: ChoiceBox<AnnotationSelection>
+
+    @FXML
+    lateinit var tgAnnotationType: ToggleGroup
+
+    @FXML
+    lateinit var rdbPositive: RadioButton
+
+    @FXML
+    lateinit var rdbNegative: RadioButton
+
+    @FXML
+    lateinit var spnPosWidth: Spinner<Int>
+
+    @FXML
+    lateinit var spnPosHeight: Spinner<Int>
+
+    private var areAnnotationsDirty = false
+
     private fun initAnnotateTab() {
         validateDirectorySelections()
         if (sourceImages.isEmpty()) {
