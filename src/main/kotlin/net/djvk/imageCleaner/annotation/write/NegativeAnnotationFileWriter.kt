@@ -49,7 +49,7 @@ class NegativeAnnotationFileWriter(
         val newFilenames = mutableListOf<String>()
         for (annotation in annotations) {
             val newFilename = cutAndWriteAnnotation(negativeImageDirectory, annotation)
-            newFilenames.add(newFilename)
+            newFilenames.add("${NEGATIVE_DIRECTORY_NAME}$sep$newFilename")
         }
 
         rewriteFile(workingDirectory.resolve(NEGATIVE_ANNOTATION_FILENAME), newFilenames) { line ->
