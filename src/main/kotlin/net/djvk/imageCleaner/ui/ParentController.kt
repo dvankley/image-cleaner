@@ -5,6 +5,7 @@ import javafx.concurrent.Task
 import javafx.embed.swing.SwingFXUtils
 import javafx.event.EventHandler
 import javafx.fxml.FXML
+import javafx.scene.Node
 import javafx.scene.control.*
 import javafx.scene.image.ImageView
 import javafx.scene.input.MouseEvent
@@ -41,6 +42,7 @@ import kotlin.io.path.pathString
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 class ParentController {
     private val logger: Logger = LoggerFactory.getLogger(this::class.java)
@@ -92,6 +94,9 @@ class ParentController {
 
     @FXML
     lateinit var prgLoadThumbnails: ProgressBar
+
+    @FXML
+    lateinit var paneThumbnails: Pane
 
     @FXML
     lateinit var scrlThumbnails: ScrollPane
@@ -485,6 +490,19 @@ class ParentController {
         val source = event.source as ImageView
 //        logger.trace("Thumbnail click on ${source.id}")
 
+        // Display this thumbnail as selected in the UI
+        val selectBox = (paneThumbnails.lookup("#$THUMBNAIL_SELECTION_BOX_ID") as? Rectangle)
+            ?: run {
+                val rect = buildThumbnailSelectBox()
+                paneThumbnails.children.add(rect)
+                rect
+            }
+        val selectedIndex = hboxSourceImages.children.indexOf(event.source)
+        selectBox.width = (event.source as Node).boundsInParent.width
+        selectBox.x = (0..selectedIndex).reduce { acc, i ->
+            acc + hboxSourceImages.children[i].boundsInParent.width.roundToInt()
+        }.toDouble()
+
         // Read image into memory
         mainAnnotatingImage = ImageIO.read(File("$workingDirectory$sep$SOURCE_DIRECTORY_NAME$sep${source.id}"))
 
@@ -500,7 +518,17 @@ class ParentController {
         setAnnotationsDirty(false)
     }
 
-    private val CURRENT_ANNOTATION_COLOR = Color.BLUE
+    private fun buildThumbnailSelectBox(): Rectangle {
+        val rect = Rectangle()
+        rect.fill = Color.TRANSPARENT
+        rect.stroke = Color.LIGHTBLUE
+        rect.strokeWidth = 3.0
+        rect.width = THUMBNAIL_WIDTH.toDouble()
+        rect.height = THUMBNAIL_HEIGHT.toDouble()
+        rect.isMouseTransparent = true
+        rect.id = THUMBNAIL_SELECTION_BOX_ID
+        return rect
+    }
 
     private fun getCurrentAnnotationType(): AnnotationType {
         return AnnotationType.byNodeId[(tgAnnotationType.selectedToggle as RadioButton).id]
@@ -555,6 +583,7 @@ class ParentController {
     @FXML
     private fun handleAnnotationReleased(event: MouseEvent) {
         annotationDrag(event)
+        forceRefreshChoiceBox(chbAnnotation)
     }
 
     private fun annotationDrag(event: MouseEvent) {

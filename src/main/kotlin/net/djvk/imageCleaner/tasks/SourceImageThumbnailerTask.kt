@@ -5,6 +5,8 @@ import javafx.embed.swing.SwingFXUtils
 import kotlinx.coroutines.sync.Mutex
 import net.coobird.thumbnailator.Thumbnails
 import net.djvk.imageCleaner.constants.SOURCE_DIRECTORY_NAME
+import net.djvk.imageCleaner.constants.THUMBNAIL_HEIGHT
+import net.djvk.imageCleaner.constants.THUMBNAIL_WIDTH
 import net.djvk.imageCleaner.util.DsStoreFilenameFilter
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -55,7 +57,7 @@ class SourceImageThumbnailerTask(
                 val iv = SwingFXUtils.toFXImage(
                     Thumbnails
                         .of(img)
-                        .size(50, 50)
+                        .size(THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT)
                         .asBufferedImage(), null
                 )
                 updateProgress(
