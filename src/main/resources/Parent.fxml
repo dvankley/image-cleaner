@@ -44,11 +44,11 @@
               <AnchorPane fx:id="apAnnotate" minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0">
                      <children>
                         <Label layoutX="14.0" layoutY="14.0" text="Input Images" />
-                        <ScrollPane fx:id="scrlThumbnails" hbarPolicy="ALWAYS" layoutX="14.0" layoutY="38.0" pannable="true" prefHeight="75.0" prefWidth="700.0" vbarPolicy="NEVER" visible="false">
+                        <ScrollPane fx:id="scrlAnnotateThumbnails" hbarPolicy="ALWAYS" layoutX="14.0" layoutY="38.0" pannable="true" prefHeight="75.0" prefWidth="700.0" vbarPolicy="NEVER" visible="false">
                            <content>
-                              <Pane fx:id="paneThumbnails">
+                              <Pane fx:id="paneAnnotateThumbnails">
                                  <children>
-                                    <HBox fx:id="hboxSourceImages" />
+                                    <HBox fx:id="hboxAnnotateThumbnails" />
                                  </children>
                               </Pane>
                            </content>
@@ -77,21 +77,42 @@
                         <Label layoutX="533.0" layoutY="653.0" text="Positive Annotation Size" />
                         <Spinner fx:id="spnPosHeight" editable="true" layoutX="617.0" layoutY="685.0" prefHeight="26.0" prefWidth="76.0" />
                         <Label layoutX="592.0" layoutY="690.0" text="by" />
-                        <ProgressBar fx:id="prgLoadThumbnails" layoutX="133.0" layoutY="56.0" prefHeight="20.0" prefWidth="508.0" progress="0.0" />
+                        <ProgressBar fx:id="prgAnnotateLoadThumbnails" layoutX="133.0" layoutY="56.0" prefHeight="20.0" prefWidth="508.0" progress="0.0" />
                      </children></AnchorPane>
             </content>
           </Tab>
-            <Tab text="Train">
+            <Tab fx:id="tabTrain" text="Train">
               <content>
                 <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0" />
               </content>
             </Tab>
-            <Tab text="Classify">
+            <Tab fx:id="tabTest" text="Test">
               <content>
-                <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0" />
+                <AnchorPane fx:id="apTest" minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0">
+                     <children>
+                        <ScrollPane fx:id="scrlTestThumbnails" hbarPolicy="ALWAYS" layoutX="14.0" layoutY="38.0" pannable="true" prefHeight="75.0" prefWidth="700.0" vbarPolicy="NEVER" visible="false">
+                           <content>
+                              <Pane fx:id="paneTestThumbnails">
+                                 <children>
+                                    <HBox fx:id="hboxTestThumbnails" />
+                                 </children>
+                              </Pane>
+                           </content>
+                        </ScrollPane>
+                        <ScrollPane layoutX="14.0" layoutY="120.0" prefHeight="526.0" prefWidth="699.0">
+                           <content>
+                              <Pane fx:id="paneTestMain">
+                                 <children>
+                                    <ImageView fx:id="ivTestMain" onMouseDragged="#handleAnnotationDragged" onMousePressed="#handleAnnotationPressed" onMouseReleased="#handleAnnotationReleased" pickOnBounds="true" preserveRatio="true" />
+                                 </children>
+                              </Pane>
+                           </content>
+                        </ScrollPane>
+                        <ProgressBar fx:id="prgTestLoadThumbnails" layoutX="133.0" layoutY="56.0" prefHeight="20.0" prefWidth="508.0" progress="0.0" />
+                     </children></AnchorPane>
               </content>
             </Tab>
-            <Tab text="Transform">
+            <Tab fx:id="tabTransform" text="Transform">
               <content>
                 <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0" />
               </content>

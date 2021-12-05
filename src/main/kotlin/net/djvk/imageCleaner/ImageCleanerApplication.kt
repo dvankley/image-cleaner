@@ -1,6 +1,7 @@
 package net.djvk.imageCleaner
 
 import net.djvk.imageCleaner.ui.UiApp
+import org.opencv.osgi.OpenCVNativeLoader
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationArguments
@@ -18,6 +19,9 @@ class ImageCleanerApplication(
     private val logger: Logger = LoggerFactory.getLogger(this::class.java)
 
     override fun run(args: ApplicationArguments?) {
+//        System.setProperty("os.arch", "x86_64")
+        OpenCVNativeLoader().init()
+//        OpenCV.loadShared()
         if (args == null) {
             throw IllegalArgumentException("No arguments specified, ending run.")
         }

@@ -24,10 +24,9 @@ import net.djvk.imageCleaner.constants.*
 import net.djvk.imageCleaner.tasks.InputImageLoaderTask
 import net.djvk.imageCleaner.tasks.SourceImageThumbnailerTask
 import net.djvk.imageCleaner.tasks.ThumbnailTaskResult
-import net.djvk.imageCleaner.util.DsStoreFilenameFilter
-import net.djvk.imageCleaner.util.buildAnnotationRectangle
-import net.djvk.imageCleaner.util.recursiveDeleteAllContents
-import net.djvk.imageCleaner.util.unwrapOptional
+import net.djvk.imageCleaner.util.*
+import org.opencv.core.*
+import org.opencv.objdetect.CascadeClassifier
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.awt.image.BufferedImage
@@ -60,41 +59,14 @@ class ParentController {
      */
     private var sourceImages = listOf<SourceFilename>()
 
-    /**
-     * This setter is called when [sourceImages] are first loaded, either from input
-     *  images or straight from the source file..
-     * It updates the annotate UI with thumbnails and clears existing training data.
-     */
-//        set(value) {
-//            field = value
-//
-//            // Update the UI with the new set of images
-//
-//            // Remove the old images
-//            hboxSourceImages.children.clear()
-//            // Add the new ones
-//            hboxSourceImages.children.addAll(value.map { srcImgFilename ->
-//                val iv = ImageView(
-//                    SwingFXUtils.toFXImage(
-//                        Thumbnails
-//                            .of("$workingDirectory$sep$SOURCE_DIRECTORY_NAME$sep$srcImgFilename")
-//                            .size(50, 50)
-//                            .asBufferedImage(), null
-//                    )
-//                )
-//                iv.id = srcImgFilename
-//                iv.onMouseClicked = handleSourceThumbnailClick
-//                iv
-//            })
-//        }
-
     fun initialize() {
         // Tab change listener
         tabPane.selectionModel.selectedItemProperty().addListener { _, _, new ->
             when (new) {
-                tabInput -> {
-                }
+                tabInput -> {}
                 tabAnnotate -> initAnnotateTab()
+                tabTrain -> {}
+                tabTest -> initTestTab()
                 else -> throw IllegalArgumentException("Invalid tab $new")
             }
         }
@@ -106,6 +78,76 @@ class ParentController {
         // Spinner value factories
         spnPosWidth.valueFactory = SpinnerValueFactory.IntegerSpinnerValueFactory(20, 1000, 150, 10)
         spnPosHeight.valueFactory = SpinnerValueFactory.IntegerSpinnerValueFactory(20, 1000, 150, 10)
+    }
+
+    /**
+     * Loads and thumbnails source files with a background task.
+     * This is the first part of the second stage of the pipeline, annotation and sampling.
+     * Source files previously loaded into the filesystem with their filenames in [sourceImages] are
+     *  loaded into memory, converted into thumbnails for display, and set into [hboxAnnotateThumbnails]
+     *  and [hboxTestThumbnails] for use in the UI.
+     */
+    private fun loadSourceImageThumbnails(workingDirectory: Path) {
+        if (!inputThumbnailLoadingMutex.tryLock()) {
+            logger.warn("Not kicking off source file thumbnail process because lock is held")
+            return
+        }
+        if (hboxAnnotateThumbnails.children.isNotEmpty()) {
+            logger.info("Skipping source file thumbnail process because thumbnails are already loaded")
+            return
+        }
+
+        logger.info("Kicking off source file thumbnail process")
+        val task = SourceImageThumbnailerTask(
+            workingDirectory,
+            inputThumbnailLoadingMutex,
+        )
+        thumbnailLoadStart(task)
+        inputThumbnailLoadingTask = task
+        task.setOnSucceeded { stateEvent ->
+            thumbnailLoadSucceeded(stateEvent.source.value as List<ThumbnailTaskResult>)
+        }
+        task.setOnCancelled {
+            thumbnailLoadFailed()
+        }
+        task.setOnFailed {
+            thumbnailLoadFailed()
+        }
+        pool.submit(task)
+    }
+
+    private fun thumbnailLoadStart(task: SourceImageThumbnailerTask) {
+        prgAnnotateLoadThumbnails.isVisible = true
+        prgAnnotateLoadThumbnails.progressProperty().bind(task.progressProperty())
+        prgTestLoadThumbnails.progressProperty().bind(task.progressProperty())
+    }
+
+    private fun thumbnailLoadSucceeded(results: List<ThumbnailTaskResult>) {
+        logger.info("Thumbnailed ${results.size} input images")
+        prgAnnotateLoadThumbnails.isVisible = false
+        scrlAnnotateThumbnails.isVisible = true
+        hboxAnnotateThumbnails.children.clear()
+        hboxAnnotateThumbnails.children.addAll(results.map { result ->
+            val iv = ImageView(result.thumbnail)
+            iv.id = result.filename.name
+            iv.onMouseClicked = handleAnnotateThumbnailClick
+            iv
+        })
+        // Do the same thing on the test page because it uses basically the same UI
+        prgTestLoadThumbnails.isVisible = false
+        scrlTestThumbnails.isVisible = true
+        hboxTestThumbnails.children.clear()
+        hboxTestThumbnails.children.addAll(results.map { result ->
+            val iv = ImageView(result.thumbnail)
+            iv.id = result.filename.name
+            iv.onMouseClicked = handleTestThumbnailClick
+            iv
+        })
+    }
+
+    private fun thumbnailLoadFailed() {
+        prgAnnotateLoadThumbnails.isVisible = false
+        prgTestLoadThumbnails.isVisible = false
     }
 
     //region Input Tab
@@ -355,19 +397,19 @@ class ParentController {
     private val inputThumbnailLoadingMutex = Mutex()
 
     @FXML
-    lateinit var prgLoadThumbnails: ProgressBar
+    lateinit var prgAnnotateLoadThumbnails: ProgressBar
 
     @FXML
-    lateinit var paneThumbnails: Pane
+    lateinit var paneAnnotateThumbnails: Pane
 
     @FXML
-    lateinit var scrlThumbnails: ScrollPane
+    lateinit var scrlAnnotateThumbnails: ScrollPane
 
     @FXML
     lateinit var apAnnotate: AnchorPane
 
     @FXML
-    lateinit var hboxSourceImages: HBox
+    lateinit var hboxAnnotateThumbnails: HBox
 
     @FXML
     lateinit var ivAnnotatingMain: ImageView
@@ -421,56 +463,9 @@ class ParentController {
     }
 
     /**
-     * Loads and thumbnails source files with a background task.
-     * This is the first part of the second stage of the pipeline, annotation and sampling.
-     * Source files previously loaded into the filesystem with their filenames in [sourceImages] are
-     *  loaded into memory, converted into thumbnails for display, and set into [hboxSourceImages]
-     *  for use in the UI.
+     * Handles clicks on source image thumbnails in the annotate tab, loading them into the main image view for annotating.
      */
-    private fun loadSourceImageThumbnails(workingDirectory: Path) {
-        if (!inputThumbnailLoadingMutex.tryLock()) {
-            logger.warn("Not kicking off source file thumbnail process because lock is held")
-            return
-        }
-        if (hboxSourceImages.children.isNotEmpty()) {
-            logger.info("Skipping source file thumbnail process because thumbnails are already loaded")
-            return
-        }
-
-        logger.info("Kicking off source file thumbnail process")
-        val task = SourceImageThumbnailerTask(
-            workingDirectory,
-            inputThumbnailLoadingMutex,
-        )
-        prgLoadThumbnails.isVisible = true
-        prgLoadThumbnails.progressProperty().bind(task.progressProperty())
-        inputThumbnailLoadingTask = task
-        task.setOnSucceeded { stateEvent ->
-            val results = stateEvent.source.value as List<ThumbnailTaskResult>
-            logger.info("Thumbnailed ${results.size} input images")
-            prgLoadThumbnails.isVisible = false
-            scrlThumbnails.isVisible = true
-            hboxSourceImages.children.clear()
-            hboxSourceImages.children.addAll(results.map { result ->
-                val iv = ImageView(result.thumbnail)
-                iv.id = result.filename.name
-                iv.onMouseClicked = handleSourceThumbnailClick
-                iv
-            })
-        }
-        task.setOnCancelled {
-            prgLoadThumbnails.isVisible = false
-        }
-        task.setOnFailed {
-            prgLoadThumbnails.isVisible = false
-        }
-        pool.submit(task)
-    }
-
-    /**
-     * Handles clicks on source image thumbnails, loading them into the main image view for annotating.
-     */
-    private val handleSourceThumbnailClick = EventHandler<MouseEvent> { event ->
+    private val handleAnnotateThumbnailClick = EventHandler<MouseEvent> { event ->
         if (areAnnotationsDirty) {
             val alert = Alert(
                 Alert.AlertType.CONFIRMATION,
@@ -486,16 +481,16 @@ class ParentController {
 //        logger.trace("Thumbnail click on ${source.id}")
 
         // Display this thumbnail as selected in the UI
-        val selectBox = (paneThumbnails.lookup("#$THUMBNAIL_SELECTION_BOX_ID") as? Rectangle)
+        val selectBox = (paneAnnotateThumbnails.lookup("#$THUMBNAIL_SELECTION_BOX_ID") as? Rectangle)
             ?: run {
                 val rect = buildThumbnailSelectBox()
-                paneThumbnails.children.add(rect)
+                paneAnnotateThumbnails.children.add(rect)
                 rect
             }
-        val selectedIndex = hboxSourceImages.children.indexOf(event.source)
+        val selectedIndex = hboxAnnotateThumbnails.children.indexOf(event.source)
         selectBox.width = (event.source as Node).boundsInParent.width
         selectBox.x = (0..selectedIndex).reduce { acc, i ->
-            acc + hboxSourceImages.children[i].boundsInParent.width.roundToInt()
+            acc + hboxAnnotateThumbnails.children[i].boundsInParent.width.roundToInt()
         }.toDouble()
 
         // Read image into memory
@@ -741,5 +736,139 @@ class ParentController {
         setAnnotationsDirty(false)
     }
 
+    //endregion
+
+    //region Train Tab
+    @FXML
+    lateinit var tabTrain: Tab
+
+    //endregion
+
+    //region Test Tab
+    @FXML
+    lateinit var tabTest: Tab
+
+    @FXML
+    lateinit var prgTestLoadThumbnails: ProgressBar
+
+    @FXML
+    lateinit var paneTestThumbnails: Pane
+
+    @FXML
+    lateinit var scrlTestThumbnails: ScrollPane
+
+    @FXML
+    lateinit var apTest: AnchorPane
+
+    @FXML
+    lateinit var hboxTestThumbnails: HBox
+
+    @FXML
+    lateinit var ivTestMain: ImageView
+
+    /**
+     * [BufferedImage] version of [ivTestingMain]
+     */
+    private var mainTestImage: BufferedImage? = null
+
+    @FXML
+    lateinit var paneTestMain: Pane
+
+    private fun initTestTab() {
+        validateDirectorySelections()
+        if (sourceImages.isEmpty()) {
+            loadSourceFiles()
+        }
+        loadSourceImageThumbnails(workingDirectory)
+    }
+
+    data class OpenCvAnnotation(
+        val rect: Rect,
+        val rejectLevel: Int,
+        val weight: Double,
+    )
+
+    /**
+     * Handles clicks on source image thumbnails in the test tab, loading them into the main test image view.
+     */
+    private val handleTestThumbnailClick = EventHandler<MouseEvent> { event ->
+        val source = event.source as ImageView
+//        logger.trace("Thumbnail click on ${source.id}")
+
+        // Display this thumbnail as selected in the UI
+        // TODO: this is mostly straight duplicated from the annotation tab, dedupe it
+        val selectBox = (paneTestThumbnails.lookup("#$THUMBNAIL_SELECTION_BOX_ID") as? Rectangle)
+            ?: run {
+                val rect = buildThumbnailSelectBox()
+                paneTestThumbnails.children.add(rect)
+                rect
+            }
+        val selectedIndex = hboxTestThumbnails.children.indexOf(event.source)
+        selectBox.width = (event.source as Node).boundsInParent.width
+        selectBox.x = (0..selectedIndex).reduce { acc, i ->
+            acc + hboxTestThumbnails.children[i].boundsInParent.width.roundToInt()
+        }.toDouble()
+
+        // Read image into memory
+        val img = ImageIO.read(File("$workingDirectory$sep$SOURCE_DIRECTORY_NAME$sep${source.id}"))
+        mainTestImage = img
+
+        // Load full image into UI
+        ivTestMain.image = SwingFXUtils.toFXImage(img, null)
+        ivTestMain.id = source.id
+
+        // Remove all annotations
+        paneTestMain.children.removeAll(paneTestMain.children.filterIsInstance<Rectangle>())
+
+        // Generate annotations from the object recognition model
+        val classifier = CascadeClassifier(
+            workingDirectory
+                .resolve(MODEL_DIRECTORY_NAME)
+                .resolve(MODEL_FILENAME)
+                .pathString
+        )
+
+        val trainedHeight = spnPosHeight.value.toDouble()
+        val trainedWidth = spnPosWidth.value.toDouble()
+        val mat = OpenCvUtilities.bufferedImageToMat(img)
+        val objects = MatOfRect()
+        val rawRejectLevels = MatOfInt()
+        val rawWeights = MatOfDouble()
+        classifier.detectMultiScale3(
+            mat,
+            objects,
+            rawRejectLevels,
+            rawWeights,
+            1.1,
+            6,
+            // Allegedly this param doesn't matter for "new" cascades
+            0,
+            Size(trainedWidth / 2, trainedHeight / 2),
+            Size(trainedWidth * 2, trainedHeight * 2),
+            true,
+        )
+
+        val rejectLevels = rawRejectLevels.toList()
+        val weights = rawWeights.toList()
+
+        val openCvAnnotations = objects.toList().mapIndexed { index, rect ->
+            OpenCvAnnotation(
+                rect,
+                rejectLevels[index],
+                weights[index],
+            )
+        }
+
+        // Display the annotations from the model
+        val annotations = openCvAnnotations.map { annotation ->
+            val box = buildAnnotationRectangle(Color.LIGHTGREEN)
+            box.x = annotation.rect.x.toDouble()
+            box.y = annotation.rect.y.toDouble()
+            box.width = annotation.rect.width.toDouble()
+            box.height = annotation.rect.height.toDouble()
+            box
+        }
+        paneTestMain.children.addAll(annotations)
+    }
     //endregion
 }
