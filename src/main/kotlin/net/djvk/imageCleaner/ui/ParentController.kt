@@ -21,6 +21,9 @@ import net.djvk.imageCleaner.annotation.read.PositiveAnnotationFileReader
 import net.djvk.imageCleaner.annotation.write.NegativeAnnotationFileWriter
 import net.djvk.imageCleaner.annotation.write.PositiveAnnotationFileWriter
 import net.djvk.imageCleaner.constants.*
+import net.djvk.imageCleaner.matching.AnnotationMatcher
+import net.djvk.imageCleaner.matching.HaarMatcher
+import net.djvk.imageCleaner.matching.ObjectMatch
 import net.djvk.imageCleaner.tasks.InputImageLoaderTask
 import net.djvk.imageCleaner.tasks.SourceImageThumbnailerTask
 import net.djvk.imageCleaner.tasks.ThumbnailTaskResult
@@ -774,6 +777,24 @@ class ParentController {
     @FXML
     lateinit var paneTestMain: Pane
 
+    @FXML
+    lateinit var tgTestDisplayMode: ToggleGroup
+
+    @FXML
+    lateinit var rdbTestMatchClassifier: RadioButton
+
+    @FXML
+    lateinit var rdbTestMatchPosAnnotations: RadioButton
+
+    @FXML
+    lateinit var tgTestMatchMode: ToggleGroup
+
+    @FXML
+    lateinit var rdbTestDisplayMatch: RadioButton
+
+    @FXML
+    lateinit var rdbTestDisplayInpaint: RadioButton
+
     private fun initTestTab() {
         validateDirectorySelections()
         if (sourceImages.isEmpty()) {
@@ -783,10 +804,13 @@ class ParentController {
     }
 
     data class OpenCvAnnotation(
-        val rect: Rect,
+        override val x: Double,
+        override val y: Double,
+        override  val width: Double,
+        override val height: Double,
         val rejectLevel: Int,
         val weight: Double,
-    )
+    ) : ObjectMatch
 
     /**
      * Handles clicks on source image thumbnails in the test tab, loading them into the main test image view.
@@ -817,58 +841,72 @@ class ParentController {
         ivTestMain.image = SwingFXUtils.toFXImage(img, null)
         ivTestMain.id = source.id
 
+        updateTestUiAnnotations()
+    }
+
+    enum class MatchModeRadioButtons(val nodeId: String) {
+        TRAINED_CLASSIFIER("rdbTestMatchClassifier"),
+        MANUAL_POSITIVE_ANNOTATIONS("rdbTestMatchPosAnnotations");
+
+        companion object {
+            val byNodeId = values().associateBy { it.nodeId }
+        }
+    }
+
+    enum class DisplayModeRadioButtons(val nodeId: String) {
+        MATCH("rdbTestDisplayMatch"),
+        INPAINT("rdbTestDisplayInpaint");
+
+        companion object {
+            val byNodeId = values().associateBy { it.nodeId }
+        }
+    }
+
+    private fun updateTestUiAnnotations() {
+        val img = mainTestImage
+            ?: run {
+                logger.warn("Can't update Test tab UI annotations without a selected image")
+                return
+            }
+
         // Remove all annotations
         paneTestMain.children.removeAll(paneTestMain.children.filterIsInstance<Rectangle>())
 
-        // Generate annotations from the object recognition model
-        val classifier = CascadeClassifier(
-            workingDirectory
-                .resolve(MODEL_DIRECTORY_NAME)
-                .resolve(MODEL_FILENAME)
-                .pathString
-        )
+        val matchMode = MatchModeRadioButtons.byNodeId[(tgTestMatchMode.selectedToggle as RadioButton).id]
+            ?: throw IllegalArgumentException("Invalid match mode radio button state")
+        val displayMode = DisplayModeRadioButtons.byNodeId[(tgTestDisplayMode.selectedToggle as RadioButton).id]
+            ?: throw IllegalArgumentException("Invalid display mode radio button state")
 
-        val trainedHeight = spnPosHeight.value.toDouble()
-        val trainedWidth = spnPosWidth.value.toDouble()
-        val mat = OpenCvUtilities.bufferedImageToMat(img)
-        val objects = MatOfRect()
-        val rawRejectLevels = MatOfInt()
-        val rawWeights = MatOfDouble()
-        classifier.detectMultiScale3(
-            mat,
-            objects,
-            rawRejectLevels,
-            rawWeights,
-            1.1,
-            6,
-            // Allegedly this param doesn't matter for "new" cascades
-            0,
-            Size(trainedWidth / 2, trainedHeight / 2),
-            Size(trainedWidth * 2, trainedHeight * 2),
-            true,
-        )
+        val imagePath = Paths.get(ivAnnotatingMain.id)
 
-        val rejectLevels = rawRejectLevels.toList()
-        val weights = rawWeights.toList()
-
-        val openCvAnnotations = objects.toList().mapIndexed { index, rect ->
-            OpenCvAnnotation(
-                rect,
-                rejectLevels[index],
-                weights[index],
+        val matcher = when (matchMode) {
+            MatchModeRadioButtons.TRAINED_CLASSIFIER -> HaarMatcher(
+                workingDirectory,
+                spnPosHeight.value.toDouble(),
+                spnPosWidth.value.toDouble(),
             )
+            MatchModeRadioButtons.MANUAL_POSITIVE_ANNOTATIONS -> AnnotationMatcher()
         }
 
-        // Display the annotations from the model
-        val annotations = openCvAnnotations.map { annotation ->
-            val box = buildAnnotationRectangle(Color.LIGHTGREEN)
-            box.x = annotation.rect.x.toDouble()
-            box.y = annotation.rect.y.toDouble()
-            box.width = annotation.rect.width.toDouble()
-            box.height = annotation.rect.height.toDouble()
-            box
+        val openCvAnnotations = matcher.match(imagePath, img)
+
+        when (displayMode) {
+            DisplayModeRadioButtons.MATCH -> {
+                // Display the annotations from the model
+                val annotations = openCvAnnotations.map { match ->
+                    val box = buildAnnotationRectangle(Color.LIGHTGREEN)
+                    box.x = match.x
+                    box.y = match.y
+                    box.width = match.width
+                    box.height = match.height
+                    box
+                }
+                paneTestMain.children.addAll(annotations)
+            }
+            DisplayModeRadioButtons.INPAINT -> {
+
+            }
         }
-        paneTestMain.children.addAll(annotations)
     }
     //endregion
 }

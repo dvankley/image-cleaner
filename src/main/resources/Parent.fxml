@@ -109,6 +109,21 @@
                            </content>
                         </ScrollPane>
                         <ProgressBar fx:id="prgTestLoadThumbnails" layoutX="133.0" layoutY="56.0" prefHeight="20.0" prefWidth="508.0" progress="0.0" />
+                        <RadioButton id="rdbTestDisplayMatch" fx:id="rdbTestDisplayMatch" layoutX="243.0" layoutY="680.0" mnemonicParsing="false" selected="true" text="Match">
+                           <toggleGroup>
+                              <ToggleGroup fx:id="tgTestDisplayMode" />
+                           </toggleGroup>
+                        </RadioButton>
+                        <RadioButton id="rdbTestDisplayInpaint" fx:id="rdbTestDisplayInpaint" layoutX="243.0" layoutY="705.0" mnemonicParsing="false" text="Inpaint" toggleGroup="$tgTestDisplayMode" />
+                        <Label layoutX="242.0" layoutY="655.0" text="Display" />
+                        <RadioButton id="rdbTestMatchClassifier" fx:id="rdbTestMatchClassifier" layoutX="28.0" layoutY="680.0" mnemonicParsing="false" selected="true" text="Trained Classifier">
+                           <toggleGroup>
+                              <ToggleGroup fx:id="tgTestMatchMode" />
+                           </toggleGroup>
+                        </RadioButton>
+                        <RadioButton id="rdbTestMatchPosAnnotations" fx:id="rdbTestMatchPosAnnotations" layoutX="28.0" layoutY="705.0" mnemonicParsing="false" text="Manual Positive Annotations" toggleGroup="$tgTestMatchMode" />
+                        <Label layoutX="27.0" layoutY="655.0" text="Match Based On" />
+                        <Button layoutX="487.0" layoutY="676.0" mnemonicParsing="false" text="Inpaint All Source Files" />
                      </children></AnchorPane>
               </content>
             </Tab>
