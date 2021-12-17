@@ -21,6 +21,7 @@ import net.djvk.imageCleaner.annotation.read.PositiveAnnotationFileReader
 import net.djvk.imageCleaner.annotation.write.NegativeAnnotationFileWriter
 import net.djvk.imageCleaner.annotation.write.PositiveAnnotationFileWriter
 import net.djvk.imageCleaner.constants.*
+import net.djvk.imageCleaner.inpaint.Inpainter
 import net.djvk.imageCleaner.matching.AnnotationMatcher
 import net.djvk.imageCleaner.matching.HaarMatcher
 import net.djvk.imageCleaner.matching.ObjectMatch
@@ -29,6 +30,7 @@ import net.djvk.imageCleaner.tasks.SourceImageThumbnailerTask
 import net.djvk.imageCleaner.tasks.ThumbnailTaskResult
 import net.djvk.imageCleaner.util.*
 import org.opencv.core.*
+import org.opencv.photo.Photo
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.awt.image.BufferedImage
@@ -879,6 +881,7 @@ class ParentController {
                 logger.warn("Can't update Test tab UI annotations without a selected image")
                 return
             }
+        ivTestMain.image = SwingFXUtils.toFXImage(img, null)
 
         // Remove all annotations
         paneTestMain.children.removeAll(paneTestMain.children.filterIsInstance<Rectangle>())
@@ -905,7 +908,7 @@ class ParentController {
 
         when (displayMode) {
             DisplayModeRadioButtons.MATCH -> {
-                // Display the annotations from the model
+                // Display matches/annotations in the UI
                 val annotations = matches.map { match ->
                     val box = buildAnnotationRectangle(Color.LIGHTGREEN)
                     box.x = match.x
@@ -917,7 +920,14 @@ class ParentController {
                 paneTestMain.children.addAll(annotations)
             }
             DisplayModeRadioButtons.INPAINT -> {
-
+                // Apply the OpenCV inpaint operation to the test image, using matches
+                //  to create the inpaint mask
+                val inpainter = Inpainter(
+                    img,
+                    matches,
+                )
+                val inpaintedImage = inpainter.inpaint()
+                ivTestMain.image = SwingFXUtils.toFXImage(inpaintedImage, null)
             }
         }
     }
