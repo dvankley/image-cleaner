@@ -29,7 +29,6 @@ import net.djvk.imageCleaner.tasks.SourceImageThumbnailerTask
 import net.djvk.imageCleaner.tasks.ThumbnailTaskResult
 import net.djvk.imageCleaner.util.*
 import org.opencv.core.*
-import org.opencv.objdetect.CascadeClassifier
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.awt.image.BufferedImage
@@ -81,6 +80,10 @@ class ParentController {
         // Spinner value factories
         spnPosWidth.valueFactory = SpinnerValueFactory.IntegerSpinnerValueFactory(20, 1000, 150, 10)
         spnPosHeight.valueFactory = SpinnerValueFactory.IntegerSpinnerValueFactory(20, 1000, 150, 10)
+
+        // Test tab radio button change listeners
+        tgTestMatchMode.selectedToggleProperty().addListener(handleMatchModeChange)
+        tgTestDisplayMode.selectedToggleProperty().addListener(handleDisplayModeChange)
     }
 
     /**
@@ -806,7 +809,7 @@ class ParentController {
     data class OpenCvAnnotation(
         override val x: Double,
         override val y: Double,
-        override  val width: Double,
+        override val width: Double,
         override val height: Double,
         val rejectLevel: Int,
         val weight: Double,
@@ -844,6 +847,14 @@ class ParentController {
         updateTestUiAnnotations()
     }
 
+    private val handleMatchModeChange = ChangeListener<Toggle> { _, _, _ ->
+        updateTestUiAnnotations()
+    }
+
+    private val handleDisplayModeChange = ChangeListener<Toggle> { _, _, _ ->
+        updateTestUiAnnotations()
+    }
+
     enum class MatchModeRadioButtons(val nodeId: String) {
         TRAINED_CLASSIFIER("rdbTestMatchClassifier"),
         MANUAL_POSITIVE_ANNOTATIONS("rdbTestMatchPosAnnotations");
@@ -877,7 +888,7 @@ class ParentController {
         val displayMode = DisplayModeRadioButtons.byNodeId[(tgTestDisplayMode.selectedToggle as RadioButton).id]
             ?: throw IllegalArgumentException("Invalid display mode radio button state")
 
-        val imagePath = Paths.get(ivAnnotatingMain.id)
+        val imagePath = Paths.get(ivTestMain.id)
 
         val matcher = when (matchMode) {
             MatchModeRadioButtons.TRAINED_CLASSIFIER -> HaarMatcher(
@@ -885,15 +896,17 @@ class ParentController {
                 spnPosHeight.value.toDouble(),
                 spnPosWidth.value.toDouble(),
             )
-            MatchModeRadioButtons.MANUAL_POSITIVE_ANNOTATIONS -> AnnotationMatcher()
+            MatchModeRadioButtons.MANUAL_POSITIVE_ANNOTATIONS -> AnnotationMatcher(
+                workingDirectory,
+            )
         }
 
-        val openCvAnnotations = matcher.match(imagePath, img)
+        val matches = matcher.match(imagePath, img)
 
         when (displayMode) {
             DisplayModeRadioButtons.MATCH -> {
                 // Display the annotations from the model
-                val annotations = openCvAnnotations.map { match ->
+                val annotations = matches.map { match ->
                     val box = buildAnnotationRectangle(Color.LIGHTGREEN)
                     box.x = match.x
                     box.y = match.y
