@@ -7,6 +7,7 @@ const val SOURCE_DIRECTORY_NAME = "src"
 const val POSITIVE_DIRECTORY_NAME = "pos"
 const val NEGATIVE_DIRECTORY_NAME = "neg"
 const val MODEL_DIRECTORY_NAME = "model"
+const val OUTPUT_DIRECTORY_NAME = "out"
 
 const val NEGATIVE_ANNOTATION_FILENAME = "neg.txt"
 const val POSITIVE_ANNOTATION_FILENAME = "pos.txt"

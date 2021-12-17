@@ -25,12 +25,13 @@ import net.djvk.imageCleaner.inpaint.Inpainter
 import net.djvk.imageCleaner.matching.AnnotationMatcher
 import net.djvk.imageCleaner.matching.HaarMatcher
 import net.djvk.imageCleaner.matching.ObjectMatch
+import net.djvk.imageCleaner.matching.ObjectMatcher
+import net.djvk.imageCleaner.tasks.InpaintAllTask
 import net.djvk.imageCleaner.tasks.InputImageLoaderTask
 import net.djvk.imageCleaner.tasks.SourceImageThumbnailerTask
 import net.djvk.imageCleaner.tasks.ThumbnailTaskResult
 import net.djvk.imageCleaner.util.*
 import org.opencv.core.*
-import org.opencv.photo.Photo
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.awt.image.BufferedImage
@@ -800,6 +801,15 @@ class ParentController {
     @FXML
     lateinit var rdbTestDisplayInpaint: RadioButton
 
+    @FXML
+    lateinit var btnInpaintAll: Button
+
+    @FXML
+    lateinit var prgInpaintAll: ProgressBar
+
+    private var inpaintAllTask: Task<Unit>? = null
+    private val inpaintAllMutex = Mutex()
+
     private fun initTestTab() {
         validateDirectorySelections()
         if (sourceImages.isEmpty()) {
@@ -857,7 +867,7 @@ class ParentController {
         updateTestUiAnnotations()
     }
 
-    enum class MatchModeRadioButtons(val nodeId: String) {
+    enum class TestMatchMode(val nodeId: String) {
         TRAINED_CLASSIFIER("rdbTestMatchClassifier"),
         MANUAL_POSITIVE_ANNOTATIONS("rdbTestMatchPosAnnotations");
 
@@ -866,12 +876,27 @@ class ParentController {
         }
     }
 
-    enum class DisplayModeRadioButtons(val nodeId: String) {
+    enum class TestDisplayMode(val nodeId: String) {
         MATCH("rdbTestDisplayMatch"),
         INPAINT("rdbTestDisplayInpaint");
 
         companion object {
             val byNodeId = values().associateBy { it.nodeId }
+        }
+    }
+
+    private fun getMatcher(): ObjectMatcher {
+        val matchMode = TestMatchMode.byNodeId[(tgTestMatchMode.selectedToggle as RadioButton).id]
+            ?: throw IllegalArgumentException("Invalid match mode radio button state")
+        return when (matchMode) {
+            TestMatchMode.TRAINED_CLASSIFIER -> HaarMatcher(
+                workingDirectory,
+                spnPosHeight.value.toDouble(),
+                spnPosWidth.value.toDouble(),
+            )
+            TestMatchMode.MANUAL_POSITIVE_ANNOTATIONS -> AnnotationMatcher(
+                workingDirectory,
+            )
         }
     }
 
@@ -886,28 +911,16 @@ class ParentController {
         // Remove all annotations
         paneTestMain.children.removeAll(paneTestMain.children.filterIsInstance<Rectangle>())
 
-        val matchMode = MatchModeRadioButtons.byNodeId[(tgTestMatchMode.selectedToggle as RadioButton).id]
-            ?: throw IllegalArgumentException("Invalid match mode radio button state")
-        val displayMode = DisplayModeRadioButtons.byNodeId[(tgTestDisplayMode.selectedToggle as RadioButton).id]
+        val displayMode = TestDisplayMode.byNodeId[(tgTestDisplayMode.selectedToggle as RadioButton).id]
             ?: throw IllegalArgumentException("Invalid display mode radio button state")
 
         val imagePath = Paths.get(ivTestMain.id)
 
-        val matcher = when (matchMode) {
-            MatchModeRadioButtons.TRAINED_CLASSIFIER -> HaarMatcher(
-                workingDirectory,
-                spnPosHeight.value.toDouble(),
-                spnPosWidth.value.toDouble(),
-            )
-            MatchModeRadioButtons.MANUAL_POSITIVE_ANNOTATIONS -> AnnotationMatcher(
-                workingDirectory,
-            )
-        }
-
+        val matcher = getMatcher()
         val matches = matcher.match(imagePath, img)
 
         when (displayMode) {
-            DisplayModeRadioButtons.MATCH -> {
+            TestDisplayMode.MATCH -> {
                 // Display matches/annotations in the UI
                 val annotations = matches.map { match ->
                     val box = buildAnnotationRectangle(Color.LIGHTGREEN)
@@ -919,7 +932,7 @@ class ParentController {
                 }
                 paneTestMain.children.addAll(annotations)
             }
-            DisplayModeRadioButtons.INPAINT -> {
+            TestDisplayMode.INPAINT -> {
                 // Apply the OpenCV inpaint operation to the test image, using matches
                 //  to create the inpaint mask
                 val inpainter = Inpainter(
@@ -930,6 +943,40 @@ class ParentController {
                 ivTestMain.image = SwingFXUtils.toFXImage(inpaintedImage, null)
             }
         }
+    }
+
+    @FXML
+    private fun handleInpaintAllSourceFilesClick(event: MouseEvent) {
+        val loggerSlug = "inpaint all"
+        if (!inpaintAllMutex.tryLock()) {
+            logger.warn("Not kicking off $loggerSlug process because lock is held")
+            return
+        }
+
+        logger.info("Kicking off $loggerSlug process")
+        val matcher = getMatcher()
+        val task = InpaintAllTask(
+            workingDirectory,
+            inpaintAllMutex,
+            matcher,
+        )
+        prgInpaintAll.isVisible = true
+        btnInpaintAll.isDisable = true
+        prgInpaintAll.progressProperty().bind(task.progressProperty())
+        inpaintAllTask = task
+        task.setOnSucceeded { stateEvent ->
+//            val result = stateEvent.source.value as List<InputTaskResult>
+            logger.info("$loggerSlug process complete")
+            prgInpaintAll.isVisible = false
+            btnInpaintAll.isDisable = false
+        }
+        task.setOnCancelled {
+            prgInpaintAll.isVisible = false
+        }
+        task.setOnFailed {
+            prgInpaintAll.isVisible = false
+        }
+        pool.submit(task)
     }
     //endregion
 }
