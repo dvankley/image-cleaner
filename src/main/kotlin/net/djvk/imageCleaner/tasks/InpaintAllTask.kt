@@ -75,6 +75,9 @@ class InpaintAllTask(
             .map { (img, file) ->
                 // Inpaint images
                 val matches = matcher.match(file.toPath(), img)
+                if (matches.isEmpty()) {
+                    return@map Pair(img, file)
+                }
                 val inpainter = Inpainter(
                     img,
                     matches,
