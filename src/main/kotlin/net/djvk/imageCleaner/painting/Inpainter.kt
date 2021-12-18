@@ -1,4 +1,4 @@
-package net.djvk.imageCleaner.inpaint
+package net.djvk.imageCleaner.painting
 
 import net.djvk.imageCleaner.matching.ObjectMatch
 import net.djvk.imageCleaner.util.OpenCvUtilities

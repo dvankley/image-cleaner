@@ -23,7 +23,7 @@ import net.djvk.imageCleaner.annotation.read.PositiveAnnotationFileReader
 import net.djvk.imageCleaner.annotation.write.NegativeAnnotationFileWriter
 import net.djvk.imageCleaner.annotation.write.PositiveAnnotationFileWriter
 import net.djvk.imageCleaner.constants.*
-import net.djvk.imageCleaner.inpaint.Inpainter
+import net.djvk.imageCleaner.painting.Inpainter
 import net.djvk.imageCleaner.matching.AnnotationMatcher
 import net.djvk.imageCleaner.matching.HaarMatcher
 import net.djvk.imageCleaner.matching.ObjectMatch
@@ -857,6 +857,9 @@ class ParentController {
     @FXML
     lateinit var prgInpaintAll: ProgressBar
 
+    @FXML
+    lateinit var chkAddPageNumbers: CheckBox
+
     private var inpaintAllTask: Task<Unit>? = null
     private val inpaintAllMutex = Mutex()
 
@@ -1009,6 +1012,7 @@ class ParentController {
             workingDirectory,
             inpaintAllMutex,
             matcher,
+            chkAddPageNumbers.isSelected,
         )
         prgInpaintAll.isVisible = true
         btnInpaintAll.isDisable = true

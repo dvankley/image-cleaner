@@ -2,17 +2,15 @@ package net.djvk.imageCleaner.tasks
 
 import javafx.concurrent.Task
 import kotlinx.coroutines.sync.Mutex
-import net.djvk.imageCleaner.constants.NEGATIVE_DIRECTORY_NAME
 import net.djvk.imageCleaner.constants.OUTPUT_DIRECTORY_NAME
 import net.djvk.imageCleaner.constants.SOURCE_DIRECTORY_NAME
-import net.djvk.imageCleaner.constants.sep
-import net.djvk.imageCleaner.inpaint.Inpainter
 import net.djvk.imageCleaner.matching.ObjectMatcher
+import net.djvk.imageCleaner.painting.Inpainter
+import net.djvk.imageCleaner.painting.PageNumberer
 import net.djvk.imageCleaner.util.DsStoreFilenameFilter
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
-import java.nio.file.Paths
 import java.util.concurrent.atomic.AtomicInteger
 import javax.imageio.ImageIO
 import kotlin.io.path.exists
@@ -29,12 +27,15 @@ class InpaintAllTask(
     private val workingDirectory: Path,
     private val mutex: Mutex,
     private val matcher: ObjectMatcher,
+    private val addPageNumbers: Boolean,
 ) : Task<Unit>() {
     private val logger: Logger = LoggerFactory.getLogger(this::class.java)
 
     private val imageReadProgress = AtomicInteger(0)
     private val inpaintProgress = AtomicInteger(0)
     private val imageWriteProgress = AtomicInteger(0)
+
+    private val numberer = PageNumberer()
 
     /**
      * @return Returns a list of image file names. They will be stored in $workingDirectory/source.
@@ -51,6 +52,7 @@ class InpaintAllTask(
             .resolve(SOURCE_DIRECTORY_NAME)
             .toFile()
             .listFiles(DsStoreFilenameFilter)
+            ?.sorted()
             ?: throw IllegalArgumentException("Source directory empty")
 
         val fileCount = files.size
@@ -59,9 +61,10 @@ class InpaintAllTask(
         // Parallel process images
         files
             .toList()
+            .mapIndexed { index, file -> Pair(file, index) }
             .stream()
             .parallel()
-            .map { file ->
+            .map { (file, index) ->
                 // Read source files into memory
                 logger.debug("Loading source image from $file")
                 val img = ImageIO.read(file)
@@ -70,13 +73,13 @@ class InpaintAllTask(
                             imageWriteProgress.get()).toLong(),
                     (fileCount * 3).toLong()
                 )
-                Pair(img, file)
+                Triple(img, file, index)
             }
-            .map { (img, file) ->
+            .map { (img, file, index) ->
                 // Inpaint images
                 val matches = matcher.match(file.toPath(), img)
                 if (matches.isEmpty()) {
-                    return@map Pair(img, file)
+                    return@map Triple(img, file, index)
                 }
                 val inpainter = Inpainter(
                     img,
@@ -89,15 +92,21 @@ class InpaintAllTask(
                             imageWriteProgress.get()).toLong(),
                     (fileCount * 3).toLong()
                 )
-                Pair(inpaintedImage, file)
+                Triple(inpaintedImage, file, index)
             }
-            .map { (inpaintedImage, file) ->
+            .map { (img, file, index) ->
+                // Add page numbers if needed
+                // One could argue that this should be in a separate stage, but I'm lazy
+                if (addPageNumbers) {
+                    numberer.addPageNumber(img, index)
+                }
+
                 // Write resulting images
                 val outFullPath = workingDirectory
                     .resolve(OUTPUT_DIRECTORY_NAME)
                     .resolve(file.name)
 
-                ImageIO.write(inpaintedImage, "jpg", outFullPath.toFile())
+                ImageIO.write(img, "jpg", outFullPath.toFile())
 
                 updateProgress(
                     (imageReadProgress.get() + inpaintProgress.get() +

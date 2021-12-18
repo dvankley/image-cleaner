@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
 <?import javafx.scene.control.ChoiceBox?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ProgressBar?>
@@ -121,10 +122,11 @@
                               <ToggleGroup fx:id="tgTestMatchMode" />
                            </toggleGroup>
                         </RadioButton>
-                        <RadioButton id="rdbTestMatchPosAnnotations" fx:id="rdbTestMatchPosAnnotations" layoutX="28.0" layoutY="705.0" mnemonicParsing="false" text="Manual Positive Annotations" toggleGroup="$tgTestMatchMode" />
+                        <RadioButton id="rdbTestMatchPosAnnotations" fx:id="rdbTestMatchPosAnnotations" layoutX="28.0" layoutY="705.0" mnemonicParsing="false" selected="true" text="Manual Positive Annotations" toggleGroup="$tgTestMatchMode" />
                         <Label layoutX="27.0" layoutY="655.0" text="Match Based On" />
-                        <Button fx:id="btnInpaintAll" layoutX="487.0" layoutY="676.0" mnemonicParsing="false" onMouseClicked="#handleInpaintAllSourceFilesClick" text="Inpaint All Source Files" />
-                        <ProgressBar fx:id="prgInpaintAll" layoutX="457.0" layoutY="713.0" prefWidth="200.0" progress="0.0" visible="false" />
+                        <Button fx:id="btnInpaintAll" layoutX="447.0" layoutY="676.0" mnemonicParsing="false" onMouseClicked="#handleInpaintAllSourceFilesClick" text="Inpaint All Source Files" />
+                        <ProgressBar fx:id="prgInpaintAll" layoutX="416.0" layoutY="713.0" prefWidth="200.0" progress="0.0" visible="false" />
+                        <CheckBox fx:id="chkAddPageNumbers" layoutX="595.0" layoutY="680.0" mnemonicParsing="false" selected="true" text="Add Page Numbers" />
                      </children></AnchorPane>
               </content>
             </Tab>
