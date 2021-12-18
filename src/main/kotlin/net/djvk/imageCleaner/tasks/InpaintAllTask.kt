@@ -1,6 +1,7 @@
 package net.djvk.imageCleaner.tasks
 
 import javafx.concurrent.Task
+import javafx.scene.input.KeyEvent
 import kotlinx.coroutines.sync.Mutex
 import net.djvk.imageCleaner.constants.OUTPUT_DIRECTORY_NAME
 import net.djvk.imageCleaner.constants.SOURCE_DIRECTORY_NAME
@@ -8,8 +9,10 @@ import net.djvk.imageCleaner.matching.ObjectMatcher
 import net.djvk.imageCleaner.painting.Inpainter
 import net.djvk.imageCleaner.painting.PageNumberer
 import net.djvk.imageCleaner.util.DsStoreFilenameFilter
+import org.apache.commons.io.FilenameUtils
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import java.io.File
 import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicInteger
 import javax.imageio.ImageIO
@@ -52,8 +55,9 @@ class InpaintAllTask(
             .resolve(SOURCE_DIRECTORY_NAME)
             .toFile()
             .listFiles(DsStoreFilenameFilter)
-            ?.sorted()
             ?: throw IllegalArgumentException("Source directory empty")
+
+        files.sortWith(sortFilesByName)
 
         val fileCount = files.size
         logger.debug("$fileCount source files to inpaint")
@@ -114,6 +118,27 @@ class InpaintAllTask(
                     (fileCount * 3).toLong()
                 )
             }.toList()
+    }
+
+    /**
+     * This sorting function is specific to my file name formats, change it as needed.
+     *
+     */
+    private val sortFilesByName = Comparator<File> { file1, file2 ->
+        val (prefix1, suffix1) = getFilenameParts(FilenameUtils.removeExtension(file1.name))
+        val (prefix2, suffix2) = getFilenameParts(FilenameUtils.removeExtension(file2.name))
+        if (prefix1 != prefix2) {
+            return@Comparator if (prefix1 > prefix2) 1 else -1
+        }
+        return@Comparator if (suffix1 > suffix2) 1 else -1
+    }
+
+    private fun getFilenameParts(name: String): Pair<Int, Int> {
+        val underscoreParts = name.split('_')
+        val prefix = underscoreParts[0].toInt()
+        val hyphenParts = name.split('-')
+        val suffix = hyphenParts.last().toInt()
+        return Pair(prefix, suffix)
     }
 
     override fun succeeded() {
