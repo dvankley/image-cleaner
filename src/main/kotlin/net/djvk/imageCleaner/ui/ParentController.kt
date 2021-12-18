@@ -8,6 +8,8 @@ import javafx.fxml.FXML
 import javafx.scene.Node
 import javafx.scene.control.*
 import javafx.scene.image.ImageView
+import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.AnchorPane
 import javafx.scene.layout.HBox
@@ -65,6 +67,16 @@ class ParentController {
     private var sourceImages = listOf<SourceFilename>()
 
     fun initialize() {
+        // Observe scene changes per https://stackoverflow.com/questions/62559353/where-to-assign-keyevent-in-controller-class-in-javafx
+        txtInputDirectory.sceneProperty().addListener { _, _, newScene ->
+//            if (oldScene != null) {
+//                oldScene.removeEventHandler(KeyEvent.KEY_PRESSED, keyPressListener)
+//            }
+            if (newScene != null) {
+                newScene.onKeyPressed = handleKeypress
+            }
+        }
+
         // Tab change listener
         tabPane.selectionModel.selectedItemProperty().addListener { _, _, new ->
             when (new) {
@@ -87,6 +99,41 @@ class ParentController {
         // Test tab radio button change listeners
         tgTestMatchMode.selectedToggleProperty().addListener(handleMatchModeChange)
         tgTestDisplayMode.selectedToggleProperty().addListener(handleDisplayModeChange)
+    }
+
+    private val handleKeypress = EventHandler<KeyEvent> { event ->
+        when (tabPane.selectionModel.selectedItem) {
+            tabAnnotate -> {
+                when (event.code) {
+                    KeyCode.N -> {
+                        addNewAnnotation(
+                            AnnotationSelection(getCurrentAnnotationType(), buildDragBox(CURRENT_ANNOTATION_COLOR))
+                        )
+                    }
+                    KeyCode.S -> {
+                        saveAnnotations()
+                    }
+                    KeyCode.CLOSE_BRACKET -> {
+                        val currentThumbnailIndex = hboxAnnotateThumbnails.children.indexOfFirst { node -> node.id == ivAnnotatingMain.id }
+                        val plannedNextIndex = currentThumbnailIndex + 1
+                        if (plannedNextIndex >= hboxAnnotateThumbnails.children.size) {
+                            return@EventHandler
+                        }
+                        selectNewAnnotationThumbnail(hboxAnnotateThumbnails.children[plannedNextIndex] as ImageView)
+                    }
+                    KeyCode.OPEN_BRACKET -> {
+                        val currentThumbnailIndex = hboxAnnotateThumbnails.children.indexOfFirst { node -> node.id == ivAnnotatingMain.id }
+                        val plannedNextIndex = currentThumbnailIndex - 1
+                        if (plannedNextIndex < 0) {
+                            return@EventHandler
+                        }
+                        selectNewAnnotationThumbnail(hboxAnnotateThumbnails.children[plannedNextIndex] as ImageView)
+                    }
+                    else -> {}
+                }
+            }
+            else -> {}
+        }
     }
 
     /**
@@ -475,18 +522,21 @@ class ParentController {
      * Handles clicks on source image thumbnails in the annotate tab, loading them into the main image view for annotating.
      */
     private val handleAnnotateThumbnailClick = EventHandler<MouseEvent> { event ->
+        selectNewAnnotationThumbnail(event.source as ImageView)
+    }
+
+    private fun selectNewAnnotationThumbnail(source: ImageView) {
         if (areAnnotationsDirty) {
             val alert = Alert(
                 Alert.AlertType.CONFIRMATION,
                 "Changes to annotations on your current image have not been saved, discard them and change images?"
             )
             val result = unwrapOptional(alert.showAndWait())
-                ?: return@EventHandler
+                ?: return
             if (result.buttonData != ButtonBar.ButtonData.OK_DONE) {
-                return@EventHandler
+                return
             }
         }
-        val source = event.source as ImageView
 //        logger.trace("Thumbnail click on ${source.id}")
 
         // Display this thumbnail as selected in the UI
@@ -496,8 +546,8 @@ class ParentController {
                 paneAnnotateThumbnails.children.add(rect)
                 rect
             }
-        val selectedIndex = hboxAnnotateThumbnails.children.indexOf(event.source)
-        selectBox.width = (event.source as Node).boundsInParent.width
+        val selectedIndex = hboxAnnotateThumbnails.children.indexOf(source)
+        selectBox.width = (source as Node).boundsInParent.width
         selectBox.x = (0..selectedIndex).reduce { acc, i ->
             acc + hboxAnnotateThumbnails.children[i].boundsInParent.width.roundToInt()
         }.toDouble()
